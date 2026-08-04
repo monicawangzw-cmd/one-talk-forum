@@ -12,7 +12,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: '请输入手机号和密码' }, { status: 400 });
     }
 
-    const user = findUserByPhone(phone);
+    const user = await findUserByPhone(phone);
     if (!user) {
       return NextResponse.json({ error: '手机号或密码错误' }, { status: 401 });
     }

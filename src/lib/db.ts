@@ -1,6 +1,5 @@
-import fs from 'fs';
-import path from 'path';
 import bcrypt from 'bcryptjs';
+import { getItem, setItem } from './storage';
 
 export interface Attachment {
   name: string;
@@ -12,49 +11,18 @@ export interface Attachment {
 // 管理员手机号列表
 const ADMIN_PHONES = ['13734034607'];
 
-const DATA_DIR = path.join(process.cwd(), 'data');
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-
-const USERS_FILE = path.join(DATA_DIR, 'users.json');
-const POSTS_FILE = path.join(DATA_DIR, 'posts.json');
-const COMMENTS_FILE = path.join(DATA_DIR, 'comments.json');
-
-function readJSON<T>(filePath: string, defaultValue: T): T {
-  try {
-    if (!fs.existsSync(filePath)) {
-      fs.writeFileSync(filePath, JSON.stringify(defaultValue, null, 2));
-      return defaultValue;
-    }
-    const data = fs.readFileSync(filePath, 'utf-8');
-    return JSON.parse(data);
-  } catch (error) {
-    return defaultValue;
-  }
-}
-
-function writeJSON<T>(filePath: string, data: T): void {
-  try {
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-  } catch (error) {
-    console.error('write error:', filePath, error);
-  }
-}
-
 export function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
 }
 
-// 判断手机号是否是管理员
 export function isPhoneAdmin(phone: string): boolean {
   return ADMIN_PHONES.includes(phone);
 }
 
-// 判断用户ID是否是管理员
 export function isUserAdmin(userId: string): boolean {
-  const user = findUserById(userId);
-  return user ? ADMIN_PHONES.includes(user.phone) : false;
+  // 异步检查的简化版：在登录时已经返回了 isAdmin，这里用同步方式无法查DB
+  // 实际管理员判断在各API中用 phone 判断
+  return false;
 }
 
 // ============ 用户相关操作 ============
@@ -69,24 +37,26 @@ export interface UserRecord {
   createdAt: string;
 }
 
-export function getUsers(): UserRecord[] {
-  return readJSON<UserRecord[]>(USERS_FILE, []);
+export async function getUsers(): Promise<UserRecord[]> {
+  return getItem<UserRecord[]>('users', []);
 }
 
-export function saveUsers(users: UserRecord[]): void {
-  writeJSON(USERS_FILE, users);
+export async function saveUsers(users: UserRecord[]): Promise<void> {
+  await setItem('users', users);
 }
 
-export function findUserByPhone(phone: string): UserRecord | undefined {
-  return getUsers().find(u => u.phone === phone);
+export async function findUserByPhone(phone: string): Promise<UserRecord | undefined> {
+  const users = await getUsers();
+  return users.find(u => u.phone === phone);
 }
 
-export function findUserById(id: string): UserRecord | undefined {
-  return getUsers().find(u => u.id === id);
+export async function findUserById(id: string): Promise<UserRecord | undefined> {
+  const users = await getUsers();
+  return users.find(u => u.id === id);
 }
 
 export async function createUser(phone: string, password: string, username: string): Promise<UserRecord> {
-  const users = getUsers();
+  const users = await getUsers();
   const hashedPassword = await bcrypt.hash(password, 10);
   const newUser: UserRecord = {
     id: generateId(),
@@ -96,12 +66,18 @@ export async function createUser(phone: string, password: string, username: stri
     createdAt: new Date().toISOString(),
   };
   users.push(newUser);
-  saveUsers(users);
+  await saveUsers(users);
   return newUser;
 }
 
 export async function verifyPassword(user: UserRecord, password: string): Promise<boolean> {
   return bcrypt.compare(password, user.password);
+}
+
+// 根据userId异步判断管理员
+export async function isUserAdminAsync(userId: string): Promise<boolean> {
+  const user = await findUserById(userId);
+  return user ? ADMIN_PHONES.includes(user.phone) : false;
 }
 
 // ============ 帖子相关操作 ============
@@ -126,15 +102,15 @@ export interface PostRecord {
   updatedAt: string;
 }
 
-export function getPosts(): PostRecord[] {
-  return readJSON<PostRecord[]>(POSTS_FILE, []);
+export async function getPosts(): Promise<PostRecord[]> {
+  return getItem<PostRecord[]>('posts', []);
 }
 
-export function savePosts(posts: PostRecord[]): void {
-  writeJSON(POSTS_FILE, posts);
+export async function savePosts(posts: PostRecord[]): Promise<void> {
+  await setItem('posts', posts);
 }
 
-export function createPost(data: {
+export async function createPost(data: {
   title: string;
   content: string;
   authorId: string;
@@ -143,8 +119,8 @@ export function createPost(data: {
   subCategory?: string;
   tags: string[];
   attachments?: Attachment[];
-}): PostRecord {
-  const posts = getPosts();
+}): Promise<PostRecord> {
+  const posts = await getPosts();
   const newPost: PostRecord = {
     id: generateId(),
     title: data.title,
@@ -165,39 +141,40 @@ export function createPost(data: {
     updatedAt: new Date().toISOString(),
   };
   posts.unshift(newPost);
-  savePosts(posts);
+  await savePosts(posts);
   return newPost;
 }
 
-export function findPostById(id: string): PostRecord | undefined {
-  return getPosts().find(p => p.id === id);
+export async function findPostById(id: string): Promise<PostRecord | undefined> {
+  const posts = await getPosts();
+  return posts.find(p => p.id === id);
 }
 
-export function updatePost(id: string, updates: Partial<PostRecord>): PostRecord | undefined {
-  const posts = getPosts();
+export async function updatePost(id: string, updates: Partial<PostRecord>): Promise<PostRecord | undefined> {
+  const posts = await getPosts();
   const index = posts.findIndex(p => p.id === id);
   if (index === -1) return undefined;
   posts[index] = { ...posts[index], ...updates, updatedAt: new Date().toISOString() };
-  savePosts(posts);
+  await savePosts(posts);
   return posts[index];
 }
 
-export function deletePost(id: string): boolean {
-  const posts = getPosts();
+export async function deletePost(id: string): Promise<boolean> {
+  const posts = await getPosts();
   const filtered = posts.filter(p => p.id !== id);
   if (filtered.length === posts.length) return false;
-  savePosts(filtered);
-  const comments = getComments().filter(c => c.postId !== id);
-  saveComments(comments);
+  await savePosts(filtered);
+  const comments = (await getComments()).filter(c => c.postId !== id);
+  await saveComments(comments);
   return true;
 }
 
-export function incrementPostViews(id: string): void {
-  const posts = getPosts();
+export async function incrementPostViews(id: string): Promise<void> {
+  const posts = await getPosts();
   const index = posts.findIndex(p => p.id === id);
   if (index !== -1) {
     posts[index].views += 1;
-    savePosts(posts);
+    await savePosts(posts);
   }
 }
 
@@ -215,22 +192,22 @@ export interface CommentRecord {
   createdAt: string;
 }
 
-export function getComments(): CommentRecord[] {
-  return readJSON<CommentRecord[]>(COMMENTS_FILE, []);
+export async function getComments(): Promise<CommentRecord[]> {
+  return getItem<CommentRecord[]>('comments', []);
 }
 
-export function saveComments(comments: CommentRecord[]): void {
-  writeJSON(COMMENTS_FILE, comments);
+export async function saveComments(comments: CommentRecord[]): Promise<void> {
+  await setItem('comments', comments);
 }
 
-export function createComment(data: {
+export async function createComment(data: {
   content: string;
   postId: string;
   authorId: string;
   authorName: string;
   parentCommentId?: string;
-}): CommentRecord {
-  const comments = getComments();
+}): Promise<CommentRecord> {
+  const comments = await getComments();
   const newComment: CommentRecord = {
     id: generateId(),
     content: data.content,
@@ -243,18 +220,19 @@ export function createComment(data: {
     createdAt: new Date().toISOString(),
   };
   comments.unshift(newComment);
-  saveComments(comments);
+  await saveComments(comments);
 
-  const posts = getPosts();
+  const posts = await getPosts();
   const postIndex = posts.findIndex(p => p.id === data.postId);
   if (postIndex !== -1) {
     posts[postIndex].comments += 1;
-    savePosts(posts);
+    await savePosts(posts);
   }
 
   return newComment;
 }
 
-export function getCommentsByPostId(postId: string): CommentRecord[] {
-  return getComments().filter(c => c.postId === postId);
+export async function getCommentsByPostId(postId: string): Promise<CommentRecord[]> {
+  const comments = await getComments();
+  return comments.filter(c => c.postId === postId);
 }

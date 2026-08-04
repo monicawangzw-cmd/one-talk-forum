@@ -20,7 +20,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: '密码至少6位' }, { status: 400 });
     }
 
-    const existingUser = findUserByPhone(phone);
+    const existingUser = await findUserByPhone(phone);
     if (existingUser) {
       return NextResponse.json({ error: '该手机号已注册' }, { status: 400 });
     }

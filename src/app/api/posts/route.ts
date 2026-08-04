@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '登录已过期，请重新登录' }, { status: 401 });
     }
 
-    const user = findUserById(decoded.userId);
+    const user = await findUserById(decoded.userId);
     if (!user) {
       return NextResponse.json({ error: '用户不存在，请重新登录' }, { status: 401 });
     }
@@ -30,12 +30,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '请填写标题、内容和版面' }, { status: 400 });
     }
 
-    // 专业知识必须选领域
     if (category === 'professional' && !subCategory) {
       return NextResponse.json({ error: '请选择专业领域分类（品质/工程/研发/其他）' }, { status: 400 });
     }
 
-    const post = createPost({
+    const post = await createPost({
       title,
       content,
       authorId: user.id,
@@ -70,7 +69,7 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50');
     const skip = (page - 1) * limit;
 
-    let posts = getPosts();
+    let posts = await getPosts();
     if (category && category !== 'all') {
       posts = posts.filter(p => p.category === category);
     }

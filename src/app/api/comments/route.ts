@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: '缺少postId' }, { status: 400 });
     }
 
-    const comments = getCommentsByPostId(postId);
+    const comments = await getCommentsByPostId(postId);
     return NextResponse.json({
       success: true,
       comments: comments.map(c => ({
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     }
 
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
-    const user = findUserById(decoded.userId);
+    const user = await findUserById(decoded.userId);
     if (!user) {
       return NextResponse.json({ error: '用户不存在' }, { status: 401 });
     }
@@ -47,12 +47,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '请填写完整的评论信息' }, { status: 400 });
     }
 
-    const post = findPostById(postId);
+    const post = await findPostById(postId);
     if (!post) {
       return NextResponse.json({ error: '帖子不存在' }, { status: 404 });
     }
 
-    const comment = createComment({
+    const comment = await createComment({
       content,
       postId,
       authorId: user.id,

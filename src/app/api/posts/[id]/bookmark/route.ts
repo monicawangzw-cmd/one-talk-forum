@@ -15,7 +15,7 @@ export async function POST(
     }
 
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
-    const post = findPostById(params.id);
+    const post = await findPostById(params.id);
     if (!post) {
       return NextResponse.json({ error: '帖子不存在' }, { status: 404 });
     }
@@ -30,7 +30,7 @@ export async function POST(
       newBookmarksBy = post.bookmarksBy.filter(id => id !== userId);
     }
 
-    const updated = updatePost(params.id, {
+    const updated = await updatePost(params.id, {
       bookmarks: newBookmarksBy.length,
       bookmarksBy: newBookmarksBy,
     });

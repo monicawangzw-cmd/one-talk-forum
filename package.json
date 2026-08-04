@@ -1,21 +1,8 @@
 {
-  "name": "forum-app",
-  "description": "智享论坛 - 专业知识与生活服务社区",
+  "name": "one-talk-forum",
+  "description": "One Talk - 专业知识与生活服务社区",
   "version": "1.0.0",
-  "author": "Your Name",
-  "license": "MIT",
-  "keywords": [
-    "forum",
-    "nextjs",
-    "react",
-    "mongodb",
-    "social",
-    "community"
-  ],
-  "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=9.0.0"
-  },
+  "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -28,8 +15,7 @@
     "react-dom": "^18.2.0",
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.0.0",
-    "nanoid": "^5.0.0",
+    "@vercel/kv": "^1.0.1",
     "lucide-react": "^0.294.0",
     "clsx": "^2.0.0",
     "tailwind-merge": "^2.1.0",

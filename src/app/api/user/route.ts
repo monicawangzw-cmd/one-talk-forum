@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { findUserById, saveUsers, getUsers, getPosts, getComments } from '@/lib/db';
 import bcrypt from 'bcryptjs';
+import { isPhoneAdmin } from '@/lib/db';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'forum-secret-key-2024';
 
@@ -14,13 +15,13 @@ export async function GET(req: NextRequest) {
     }
 
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
-    const user = findUserById(decoded.userId);
+    const user = await findUserById(decoded.userId);
     if (!user) {
       return NextResponse.json({ error: '用户不存在' }, { status: 404 });
     }
 
-    const allPosts = getPosts();
-    const allComments = getComments();
+    const allPosts = await getPosts();
+    const allComments = await getComments();
 
     const myPosts = allPosts
       .filter(p => p.authorId === user.id)
@@ -49,6 +50,7 @@ export async function GET(req: NextRequest) {
         username: user.username,
         avatar: user.avatar,
         bio: user.bio,
+        isAdmin: isPhoneAdmin(user.phone),
         createdAt: user.createdAt,
       },
       stats: {
@@ -77,7 +79,7 @@ export async function PUT(req: NextRequest) {
     }
 
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
-    const users = getUsers();
+    const users = await getUsers();
     const index = users.findIndex(u => u.id === decoded.userId);
     if (index === -1) {
       return NextResponse.json({ error: '用户不存在' }, { status: 404 });
@@ -116,7 +118,7 @@ export async function PUT(req: NextRequest) {
       users[index].avatar = avatar;
     }
 
-    saveUsers(users);
+    await saveUsers(users);
     const updated = users[index];
 
     return NextResponse.json({
@@ -127,6 +129,7 @@ export async function PUT(req: NextRequest) {
         username: updated.username,
         avatar: updated.avatar,
         bio: updated.bio,
+        isAdmin: isPhoneAdmin(updated.phone),
         createdAt: updated.createdAt,
       },
     });

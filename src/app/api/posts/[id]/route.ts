@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import { findPostById, updatePost, deletePost, incrementPostViews, isUserAdmin } from '@/lib/db';
+import { findPostById, updatePost, deletePost, incrementPostViews, isUserAdminAsync } from '@/lib/db';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'forum-secret-key-2024';
 
@@ -9,8 +9,8 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    incrementPostViews(params.id);
-    const post = findPostById(params.id);
+    await incrementPostViews(params.id);
+    const post = await findPostById(params.id);
     if (!post) {
       return NextResponse.json({ error: '帖子不存在' }, { status: 404 });
     }
@@ -39,17 +39,16 @@ export async function PUT(
     }
 
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
-    const post = findPostById(params.id);
+    const post = await findPostById(params.id);
     if (!post) {
       return NextResponse.json({ error: '帖子不存在' }, { status: 404 });
     }
-    // 作者或管理员可编辑
-    if (post.authorId !== decoded.userId && !isUserAdmin(decoded.userId)) {
+    if (post.authorId !== decoded.userId && !(await isUserAdminAsync(decoded.userId))) {
       return NextResponse.json({ error: '无权限' }, { status: 403 });
     }
 
     const { title, content, tags } = await req.json();
-    const updated = updatePost(params.id, {
+    const updated = await updatePost(params.id, {
       ...(title && { title }),
       ...(content && { content }),
       ...(tags && { tags }),
@@ -73,19 +72,18 @@ export async function DELETE(
     }
 
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
-    const post = findPostById(params.id);
+    const post = await findPostById(params.id);
     if (!post) {
       return NextResponse.json({ error: '帖子不存在' }, { status: 404 });
     }
 
-    // 作者本人 或 管理员 可以删除
     const isAuthor = post.authorId === decoded.userId;
-    const isAdmin = isUserAdmin(decoded.userId);
+    const isAdmin = await isUserAdminAsync(decoded.userId);
     if (!isAuthor && !isAdmin) {
       return NextResponse.json({ error: '无权限删除此帖子' }, { status: 403 });
     }
 
-    deletePost(params.id);
+    await deletePost(params.id);
     return NextResponse.json({ success: true, message: '删除成功' });
   } catch (error) {
     console.error('删除帖子错误:', error);

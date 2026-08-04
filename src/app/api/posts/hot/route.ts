@@ -3,7 +3,7 @@ import { getPosts } from '@/lib/db';
 
 export async function GET() {
   try {
-    const posts = getPosts();
+    const posts = await getPosts();
     const sorted = [...posts].sort((a, b) => {
       const scoreA = a.likes + a.comments + a.bookmarks;
       const scoreB = b.likes + b.comments + b.bookmarks;
