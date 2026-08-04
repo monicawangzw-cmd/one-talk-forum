@@ -1,14 +1,22 @@
-import { kv } from '@vercel/kv';
+import { Redis } from '@upstash/redis';
 import fs from 'fs';
 import path from 'path';
 
-// 检测是否在 Vercel 环境（有KV环境变量就用云存储）
-const isVercel = process.env.VERCEL_KV_REST_API_URL && process.env.VERCEL_KV_REST_API_TOKEN;
+// 检测是否在 Vercel 环境（有 Upstash 环境变量就用云存储）
+const isVercel = process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN;
+
+let redis: Redis | null = null;
+if (isVercel) {
+  redis = new Redis({
+    url: process.env.KV_REST_API_URL as string,
+    token: process.env.KV_REST_API_TOKEN as string,
+  });
+}
 
 export async function getItem<T>(key: string, defaultValue: T): Promise<T> {
   try {
-    if (isVercel) {
-      const value = await kv.get(key);
+    if (redis) {
+      const value = await redis.get(key);
       return value === null ? defaultValue : (value as T);
     } else {
       const filePath = path.join(process.cwd(), 'data', `${key}.json`);
@@ -28,8 +36,8 @@ export async function getItem<T>(key: string, defaultValue: T): Promise<T> {
 
 export async function setItem<T>(key: string, value: T): Promise<void> {
   try {
-    if (isVercel) {
-      await kv.set(key, JSON.parse(JSON.stringify(value)));
+    if (redis) {
+      await redis.set(key, JSON.parse(JSON.stringify(value)));
     } else {
       const dir = path.join(process.cwd(), 'data');
       if (!fs.existsSync(dir)) {
