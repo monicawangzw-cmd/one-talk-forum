@@ -98,6 +98,7 @@ export interface PostRecord {
   bookmarks: number;
   bookmarksBy: string[];
   views: number;
+  isPinned?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -137,6 +138,7 @@ export async function createPost(data: {
     bookmarks: 0,
     bookmarksBy: [],
     views: 0,
+    isPinned: false,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -176,6 +178,16 @@ export async function incrementPostViews(id: string): Promise<void> {
     posts[index].views += 1;
     await savePosts(posts);
   }
+}
+
+export async function togglePostPin(id: string): Promise<PostRecord | undefined> {
+  const posts = await getPosts();
+  const index = posts.findIndex(p => p.id === id);
+  if (index === -1) return undefined;
+  posts[index].isPinned = !posts[index].isPinned;
+  posts[index].updatedAt = new Date().toISOString();
+  await savePosts(posts);
+  return posts[index];
 }
 
 // ============ 评论相关操作 ============

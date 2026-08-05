@@ -160,6 +160,24 @@ export default function Home() {
     if (!user) return false;
     return post.author?._id === user.id || user.isAdmin;
   };
+  const handleTogglePin = async () => {
+    if (!selectedPost || !user?.isAdmin) return;
+    try {
+      const res = await fetch(`/api/posts/${selectedPost._id}/pin`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSelectedPost({ ...selectedPost, isPinned: data.isPinned });
+        loadPosts();
+      } else {
+        alert(data.error || '操作失败');
+      }
+    } catch (err) {
+      alert('操作失败');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -370,6 +388,20 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {/* 置顶按钮：仅管理员可见 */}
+                  {user?.isAdmin && (
+                    <button
+                      onClick={handleTogglePin}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        selectedPost.isPinned
+                          ? 'bg-orange-100 text-orange-600 hover:bg-orange-200'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                      title={selectedPost.isPinned ? '取消置顶' : '置顶帖子'}
+                    >
+                      📌 {selectedPost.isPinned ? '取消置顶' : '置顶'}
+                    </button>
+                  )}
                   {/* 删除按钮：作者本人或管理员可见 */}
                   {canDeletePost(selectedPost) && (
                     <button

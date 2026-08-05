@@ -76,6 +76,12 @@ export async function GET(req: NextRequest) {
     if (subCategory) {
       posts = posts.filter(p => p.subCategory === subCategory);
     }
+    // 置顶帖排前面，其余按时间倒序
+    posts.sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
 
     // 批量查询作者头像
     const allUsers = await getUsers();

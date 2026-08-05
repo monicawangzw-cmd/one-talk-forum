@@ -5,6 +5,9 @@ export async function GET() {
   try {
     const posts = await getPosts();
     const sorted = [...posts].sort((a, b) => {
+      // 置顶帖排前面
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
       const scoreA = a.likes + a.comments + a.bookmarks;
       const scoreB = b.likes + b.comments + b.bookmarks;
       return scoreB - scoreA;
@@ -12,7 +15,6 @@ export async function GET() {
 
     const topPosts = sorted.slice(0, 50);
 
-    // 批量查询作者头像
     const allUsers = await getUsers();
     const userMap = new Map(allUsers.map(u => [u.id, u]));
 

@@ -35,6 +35,7 @@ export interface Post {
   bookmarks: number;
   bookmarksBy: string[];
   views: number;
+  isPinned?: boolean;
   isHot: boolean;
   createdAt: string;
   updatedAt: string;

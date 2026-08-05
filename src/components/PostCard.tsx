@@ -100,6 +100,11 @@ export default function PostCard({ post, user, onPostClick }: PostCardProps) {
         </div>
 
         <div className="flex items-center gap-1.5">
+          {post.isPinned && (
+            <span className="px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-600 flex items-center gap-1">
+              📌 置顶
+            </span>
+          )}
           <span className={cn(
             'px-2.5 py-1 rounded-full text-xs font-medium',
             isProfessional ? 'bg-purple-50 text-purple-600' : 'bg-pink-50 text-pink-600'
