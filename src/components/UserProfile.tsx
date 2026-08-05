@@ -185,7 +185,7 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
   const stats = data?.stats || { posts: 0, liked: 0, bookmarked: 0, comments: 0 };
   const isAdmin = data?.user?.isAdmin || user?.isAdmin;
 
-  const tabs = (isAdmin ? [
+  const tabs = isAdmin ? [
     { key: 'profile', label: '资料', icon: User, count: 0 },
     { key: 'posts', label: '帖子', icon: FileText, count: stats.posts },
     { key: 'liked', label: '点赞', icon: Heart, count: stats.liked },
@@ -198,7 +198,7 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
     { key: 'liked', label: '点赞', icon: Heart, count: stats.liked },
     { key: 'bookmarked', label: '收藏', icon: Bookmark, count: stats.bookmarked },
     { key: 'comments', label: '评论', icon: MessageSquare, count: stats.comments },
-  ]) as const;
+  ];
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="" size="lg">
