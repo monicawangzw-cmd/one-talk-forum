@@ -14,9 +14,10 @@ interface UserProfileProps {
 }
 
 export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: UserProfileProps) {
-  const [activeTab, setActiveTab] = useState<'profile' | 'posts' | 'liked' | 'bookmarked' | 'comments'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'posts' | 'liked' | 'bookmarked' | 'comments' | 'reports'>('profile');
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [reports, setReports] = useState<any[]>([]);
 
   const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
@@ -34,6 +35,12 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
       setUsername(user.username);
       setBio(user.bio || '');
       setAvatar(user.avatar || '');
+    }
+  }, [isOpen, user]);
+
+  useEffect(() => {
+    if (isOpen && user?.isAdmin) {
+      fetchReports();
     }
   }, [isOpen, user]);
 
@@ -55,7 +62,55 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
     }
   };
 
-  // 头像上传：转 base64
+  const fetchReports = async () => {
+    try {
+      const res = await fetch('/api/reports', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+      });
+      const result = await res.json();
+      if (res.ok) {
+        setReports(result.reports || []);
+      }
+    } catch (err) {
+      console.error('获取举报失败', err);
+    }
+  };
+
+  const handleReportStatus = async (reportId: string, status: 'resolved' | 'dismissed', postId: string) => {
+    try {
+      const res = await fetch(`/api/reports/${reportId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ status, postId }),
+      });
+      if (res.ok) {
+        fetchReports();
+      }
+    } catch (err) {
+      console.error('处理举报失败', err);
+    }
+  };
+
+  // 跳转到被举报的帖子
+  const handleViewReportedPost = async (postId: string) => {
+    try {
+      const res = await fetch(`/api/posts/${postId}`);
+      const data = await res.json();
+      if (res.ok && data.post) {
+        onClose();
+        // 通过全局事件通知主页打开帖子详情
+        window.dispatchEvent(new CustomEvent('openPost', { detail: data.post }));
+      } else {
+        alert('该帖子可能已被删除');
+      }
+    } catch (err) {
+      alert('查看帖子失败');
+    }
+  };
+
   const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -130,13 +185,20 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
   const stats = data?.stats || { posts: 0, liked: 0, bookmarked: 0, comments: 0 };
   const isAdmin = data?.user?.isAdmin || user?.isAdmin;
 
-  const tabs = [
+  const tabs = (isAdmin ? [
     { key: 'profile', label: '资料', icon: User, count: 0 },
     { key: 'posts', label: '帖子', icon: FileText, count: stats.posts },
     { key: 'liked', label: '点赞', icon: Heart, count: stats.liked },
     { key: 'bookmarked', label: '收藏', icon: Bookmark, count: stats.bookmarked },
     { key: 'comments', label: '评论', icon: MessageSquare, count: stats.comments },
-  ] as const;
+    { key: 'reports', label: '举报', icon: Shield, count: reports.filter(r => r.status === 'pending').length },
+  ] : [
+    { key: 'profile', label: '资料', icon: User, count: 0 },
+    { key: 'posts', label: '帖子', icon: FileText, count: stats.posts },
+    { key: 'liked', label: '点赞', icon: Heart, count: stats.liked },
+    { key: 'bookmarked', label: '收藏', icon: Bookmark, count: stats.bookmarked },
+    { key: 'comments', label: '评论', icon: MessageSquare, count: stats.comments },
+  ]) as const;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="" size="lg">
@@ -147,7 +209,6 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
           <div className="absolute -bottom-16 -left-10 w-32 h-32 bg-purple-300/20 rounded-full blur-2xl"></div>
 
           <div className="relative flex items-center gap-4">
-            {/* 头像 - 可上传图片 */}
             <div className="relative">
               <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-white/30 shadow-lg bg-white/20 backdrop-blur-sm flex items-center justify-center text-3xl font-bold">
                 {avatar ? (
@@ -180,7 +241,6 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
             </div>
           </div>
 
-          {/* 统计卡片 */}
           <div className="relative grid grid-cols-4 gap-2 mt-5">
             {[
               { label: '帖子', value: stats.posts, icon: FileText },
@@ -198,13 +258,13 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
         </div>
 
         {/* 标签栏 */}
-        <div className="flex border-b border-gray-100 sticky top-0 bg-white z-10 px-2">
+        <div className="flex border-b border-gray-100 sticky top-0 bg-white z-10 px-2 overflow-x-auto">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key as any)}
               className={cn(
-                'flex-1 flex flex-col items-center justify-center gap-0.5 py-3 text-xs font-medium border-b-2 transition-all relative',
+                'flex-1 min-w-[60px] flex flex-col items-center justify-center gap-0.5 py-3 text-xs font-medium border-b-2 transition-all relative',
                 activeTab === tab.key
                   ? 'border-purple-600 text-purple-600'
                   : 'border-transparent text-gray-400 hover:text-gray-600'
@@ -359,7 +419,7 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
             <PostList posts={data?.myLikedPosts || []} emptyText="还没有点赞过帖子" />
           ) : activeTab === 'bookmarked' ? (
             <PostList posts={data?.myBookmarkedPosts || []} emptyText="还没有收藏过帖子" />
-          ) : (
+          ) : activeTab === 'comments' ? (
             <div className="space-y-3">
               {(data?.myComments || []).length === 0 ? (
                 <div className="text-center py-12 text-gray-400">
@@ -387,7 +447,70 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
                 ))
               )}
             </div>
-          )}
+          ) : activeTab === 'reports' && isAdmin ? (
+            <div className="space-y-3">
+              {reports.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                  <Shield className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  暂无举报记录
+                </div>
+              ) : (
+                reports.map((report) => (
+                  <div key={report.id} className="relative p-4 bg-white rounded-xl border border-gray-100 overflow-hidden">
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-red-400 to-orange-400"></div>
+                    <div className="flex items-center gap-2 mb-2 pl-2">
+                      <button
+                        onClick={() => handleViewReportedPost(report.postId)}
+                        className="text-sm font-medium text-gray-900 truncate hover:text-purple-600 hover:underline transition-colors text-left"
+                        title="点击查看帖子"
+                      >
+                        {report.postTitle}
+                      </button>
+                      <span className={cn(
+                        'px-2 py-0.5 rounded-full text-xs flex-shrink-0',
+                        report.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                        report.status === 'resolved' ? 'bg-green-100 text-green-700' :
+                        'bg-gray-100 text-gray-500'
+                      )}>
+                        {report.status === 'pending' ? '待处理' : report.status === 'resolved' ? '已处理' : '已驳回'}
+                      </span>
+                      <span className="text-xs text-gray-400 ml-auto flex-shrink-0">
+                        {formatRelativeTime(report.createdAt)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-500 mb-1 pl-2">举报人：{report.reporterName}</p>
+                    <p className="text-sm text-gray-700 pl-2 mb-3">原因：{report.reason}</p>
+                    {report.status === 'pending' && (
+                      <div className="flex gap-2 pl-2">
+                        <button
+                          onClick={() => {
+                            if (confirm('确定处理此举报吗？该帖子将被自动删除。')) {
+                              handleReportStatus(report.id, 'resolved', report.postId);
+                            }
+                          }}
+                          className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-medium hover:bg-red-200 transition-all"
+                        >
+                          处理（删帖）
+                        </button>
+                        <button
+                          onClick={() => handleReportStatus(report.id, 'dismissed', report.postId)}
+                          className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-200 transition-all"
+                        >
+                          忽略
+                        </button>
+                        <button
+                          onClick={() => handleViewReportedPost(report.postId)}
+                          className="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-xs font-medium hover:bg-purple-200 transition-all"
+                        >
+                          查看帖子
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          ) : null}
         </div>
       </div>
     </Modal>

@@ -24,20 +24,33 @@ export default function Home() {
   const [comments, setComments] = useState<any[]>([]);
   const [commentText, setCommentText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reporting, setReporting] = useState(false);
 
   useEffect(() => {
     checkAuth();
     loadPosts();
   }, [selectedCategory]);
 
+  // 监听"查看被举报帖子"事件
+  useEffect(() => {
+    const handleOpenPost = (e: any) => {
+      const post = e.detail;
+      if (post) {
+        handlePostClick(post);
+      }
+    };
+    window.addEventListener('openPost', handleOpenPost);
+    return () => window.removeEventListener('openPost', handleOpenPost);
+  }, []);
+
   const checkAuth = async () => {
     const token = localStorage.getItem('token');
     const savedUser = localStorage.getItem('user');
     if (token && savedUser) {
-      // 先用本地缓存的用户信息快速显示
       setUser(JSON.parse(savedUser));
 
-      // 再从服务器获取最新用户信息（保证头像等资料是最新的）
       try {
         const res = await fetch('/api/user', {
           headers: { 'Authorization': `Bearer ${token}` },
@@ -54,7 +67,6 @@ export default function Home() {
           }
         }
       } catch (err) {
-        // 获取失败也没关系，继续用本地缓存
       }
     }
   };
@@ -127,7 +139,6 @@ export default function Home() {
     }
   };
 
-  // 删除帖子（作者本人或管理员）
   const handleDeletePost = async () => {
     if (!selectedPost || !user) return;
     if (!confirm('确定要删除这个帖子吗？删除后无法恢复。')) return;
@@ -149,17 +160,6 @@ export default function Home() {
     }
   };
 
-  const filteredPosts = posts.filter(post =>
-    post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    post.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
-
-  // 判断当前用户是否能删除该帖子
-  const canDeletePost = (post: PostType) => {
-    if (!user) return false;
-    return post.author?._id === user.id || user.isAdmin;
-  };
   const handleTogglePin = async () => {
     if (!selectedPost || !user?.isAdmin) return;
     try {
@@ -177,6 +177,48 @@ export default function Home() {
     } catch (err) {
       alert('操作失败');
     }
+  };
+
+  const handleReport = async () => {
+    if (!user || !selectedPost || !reportReason.trim()) return;
+    setReporting(true);
+    try {
+      const res = await fetch('/api/reports', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          postId: selectedPost._id,
+          postTitle: selectedPost.title,
+          reason: reportReason,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setShowReportModal(false);
+        setReportReason('');
+        alert('举报已提交，管理员将尽快处理');
+      } else {
+        alert(data.error || '举报失败');
+      }
+    } catch (err) {
+      alert('举报失败');
+    } finally {
+      setReporting(false);
+    }
+  };
+
+  const filteredPosts = posts.filter(post =>
+    post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    post.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const canDeletePost = (post: PostType) => {
+    if (!user) return false;
+    return post.author?._id === user.id || user.isAdmin;
   };
 
   return (
@@ -229,6 +271,13 @@ export default function Home() {
             <div className="flex items-center gap-3">
               {user ? (
                 <>
+                  <button
+                    onClick={() => setShowCreatePost(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full text-sm font-medium hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg hover:shadow-xl"
+                  >
+                    <Plus className="w-4 h-4" />
+                    发布
+                  </button>
                   <button
                     onClick={() => setShowProfile(true)}
                     className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-sm hover:bg-purple-200 transition-all"
@@ -388,7 +437,15 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {/* 置顶按钮：仅管理员可见 */}
+                  {user && selectedPost.author?._id !== user.id && (
+                    <button
+                      onClick={() => setShowReportModal(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+                      title="举报帖子"
+                    >
+                      ⚠️ 举报
+                    </button>
+                  )}
                   {user?.isAdmin && (
                     <button
                       onClick={handleTogglePin}
@@ -402,7 +459,6 @@ export default function Home() {
                       📌 {selectedPost.isPinned ? '取消置顶' : '置顶'}
                     </button>
                   )}
-                  {/* 删除按钮：作者本人或管理员可见 */}
                   {canDeletePost(selectedPost) && (
                     <button
                       onClick={handleDeletePost}
@@ -423,6 +479,11 @@ export default function Home() {
               </div>
 
               <div className="flex items-center gap-2 mb-3">
+                {selectedPost.isPinned && (
+                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-600">
+                    📌 置顶
+                  </span>
+                )}
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                   selectedPost.category === 'professional'
                     ? 'bg-purple-100 text-purple-700'
@@ -558,6 +619,58 @@ export default function Home() {
               </div>
             </div>
           </div>
+
+          {/* 举报弹窗 */}
+          {showReportModal && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={() => { setShowReportModal(false); setReportReason(''); }}>
+              <div className="bg-white rounded-2xl max-w-md w-full p-6 animate-scale-in" onClick={(e) => e.stopPropagation()}>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">⚠️ 举报帖子</h3>
+                <p className="text-sm text-gray-500 mb-4">请选择举报原因，我们会认真处理</p>
+                <div className="space-y-2 mb-4">
+                  {['垃圾广告', '违法违规', '色情低俗', '辱骂攻击', '侵权抄袭', '其他'].map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => setReportReason(r)}
+                      className={`w-full text-left px-4 py-2.5 rounded-lg border transition-all ${
+                        reportReason === r
+                          ? 'border-purple-500 bg-purple-50 text-purple-700'
+                          : 'border-gray-200 text-gray-700 hover:border-purple-300'
+                      }`}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+                {reportReason === '其他' && (
+                  <textarea
+                    value={reportReason === '其他' ? '' : reportReason}
+                    onChange={(e) => setReportReason(e.target.value)}
+                    rows={2}
+                    placeholder="请详细描述举报原因"
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 mb-4 resize-none"
+                  />
+                )}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowReportModal(false);
+                      setReportReason('');
+                    }}
+                    className="flex-1 py-2.5 bg-gray-100 text-gray-600 rounded-lg font-medium hover:bg-gray-200 transition-all"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={handleReport}
+                    disabled={!reportReason.trim() || reporting}
+                    className="flex-1 py-2.5 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-lg font-medium hover:from-red-600 hover:to-orange-600 transition-all disabled:opacity-50"
+                  >
+                    {reporting ? '提交中...' : '提交举报'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

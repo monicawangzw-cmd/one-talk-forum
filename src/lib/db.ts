@@ -248,3 +248,61 @@ export async function getCommentsByPostId(postId: string): Promise<CommentRecord
   const comments = await getComments();
   return comments.filter(c => c.postId === postId);
 }
+
+// ============ 举报相关操作 ============
+
+export interface ReportRecord {
+  id: string;
+  postId: string;
+  postTitle: string;
+  reporterId: string;
+  reporterName: string;
+  reason: string;
+  status: 'pending' | 'resolved' | 'dismissed';
+  createdAt: string;
+}
+
+export async function getReports(): Promise<ReportRecord[]> {
+  return getItem<ReportRecord[]>('reports', []);
+}
+
+export async function saveReports(reports: ReportRecord[]): Promise<void> {
+  await setItem('reports', reports);
+}
+
+export async function createReport(data: {
+  postId: string;
+  postTitle: string;
+  reporterId: string;
+  reporterName: string;
+  reason: string;
+}): Promise<ReportRecord> {
+  const reports = await getReports();
+  const newReport: ReportRecord = {
+    id: generateId(),
+    postId: data.postId,
+    postTitle: data.postTitle,
+    reporterId: data.reporterId,
+    reporterName: data.reporterName,
+    reason: data.reason,
+    status: 'pending',
+    createdAt: new Date().toISOString(),
+  };
+  reports.unshift(newReport);
+  await saveReports(reports);
+  return newReport;
+}
+
+export async function updateReportStatus(id: string, status: 'resolved' | 'dismissed'): Promise<ReportRecord | undefined> {
+  const reports = await getReports();
+  const index = reports.findIndex(r => r.id === id);
+  if (index === -1) return undefined;
+  reports[index].status = status;
+  await saveReports(reports);
+  return reports[index];
+}
+
+export async function hasUserReported(userId: string, postId: string): Promise<boolean> {
+  const reports = await getReports();
+  return reports.some(r => r.reporterId === userId && r.postId === postId);
+}
