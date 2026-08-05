@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import { getPosts, createPost, findUserById } from '@/lib/db';
+import { getPosts, createPost, findUserById, getUsers } from '@/lib/db';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'forum-secret-key-2024';
 
@@ -77,9 +77,7 @@ export async function GET(req: NextRequest) {
       posts = posts.filter(p => p.subCategory === subCategory);
     }
 
-    // 收集所有作者ID，批量查询头像
-    const authorIds = [...new Set(posts.map(p => p.authorId))];
-    const { getUsers } = await import('@/lib/db');
+    // 批量查询作者头像
     const allUsers = await getUsers();
     const userMap = new Map(allUsers.map(u => [u.id, u]));
 
