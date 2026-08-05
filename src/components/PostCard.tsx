@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Heart, MessageCircle, Bookmark } from 'lucide-react';
+import { Heart, MessageCircle, Bookmark, Eye } from 'lucide-react';
 import { formatRelativeTime, cn } from '@/lib/utils';
 import type { Post } from '@/types';
 import type { User } from '@/types';
@@ -65,93 +65,107 @@ export default function PostCard({ post, user, onPostClick }: PostCardProps) {
     }
   };
 
-  const categoryColor = post.category === 'professional'
-    ? 'bg-purple-100 text-purple-700'
-    : 'bg-pink-100 text-pink-700';
-
-  const categoryLabel = post.category === 'professional' ? '专业知识' : '生活服务';
+  const isProfessional = post.category === 'professional';
 
   return (
     <div
       onClick={() => onPostClick(post)}
-      className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all cursor-pointer p-6 animate-slide-up"
+      className="group bg-white rounded-2xl border border-gray-200/80 hover:border-purple-200 hover:shadow-xl hover:shadow-purple-100/50 transition-all duration-300 cursor-pointer p-5 animate-slide-up relative overflow-hidden"
     >
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-semibold">
+      {/* 左侧装饰条 */}
+      <div className={cn(
+        'absolute left-0 top-0 bottom-0 w-1 transition-all duration-300 group-hover:w-1.5',
+        isProfessional ? 'bg-gradient-to-b from-purple-500 to-purple-600' : 'bg-gradient-to-b from-pink-500 to-pink-600'
+      )} />
+
+      {/* 头部 */}
+      <div className="flex items-start justify-between mb-3 pl-2">
+        <div className="flex items-center gap-2.5">
+          <div className={cn(
+            'w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-md',
+            isProfessional
+              ? 'bg-gradient-to-br from-purple-500 to-purple-600'
+              : 'bg-gradient-to-br from-pink-500 to-pink-600'
+          )}>
             {post.author?.username?.[0]?.toUpperCase() || 'U'}
           </div>
           <div>
-            <div className="font-semibold text-gray-900">{post.author?.username}</div>
-            <div className="text-sm text-gray-500">
-              {formatRelativeTime(post.createdAt)}
-            </div>
+            <div className="font-semibold text-gray-900 text-sm leading-tight">{post.author?.username}</div>
+            <div className="text-xs text-gray-400">{formatRelativeTime(post.createdAt)}</div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${categoryColor}`}>
-            {categoryLabel}
+
+        <div className="flex items-center gap-1.5">
+          <span className={cn(
+            'px-2.5 py-1 rounded-full text-xs font-medium',
+            isProfessional ? 'bg-purple-50 text-purple-600' : 'bg-pink-50 text-pink-600'
+          )}>
+            {isProfessional ? '📚 专业知识' : '🌈 生活服务'}
           </span>
           {post.subCategory && (
-            <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
+            <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-gray-50 text-gray-500">
               {post.subCategory}
             </span>
           )}
         </div>
       </div>
 
-      <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
+      {/* 标题 */}
+      <h3 className="font-semibold text-gray-900 text-base mb-1.5 line-clamp-2 group-hover:text-purple-700 transition-colors pl-2">
         {post.title}
       </h3>
 
-      <p className="text-gray-600 mb-4 line-clamp-3">
+      {/* 内容 */}
+      <p className="text-gray-500 text-sm mb-3 line-clamp-3 pl-2 leading-relaxed">
         {post.content}
       </p>
 
+      {/* 标签 */}
       {post.tags.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-4">
+        <div className="flex flex-wrap gap-1.5 mb-3 pl-2">
           {post.tags.slice(0, 3).map((tag) => (
-            <span key={tag} className="text-sm text-purple-600">
+            <span key={tag} className="text-xs text-purple-500 bg-purple-50/50 px-2 py-0.5 rounded">
               #{tag}
             </span>
           ))}
           {post.tags.length > 3 && (
-            <span className="text-sm text-gray-500">+{post.tags.length - 3}</span>
+            <span className="text-xs text-gray-400 px-2 py-0.5">+{post.tags.length - 3}</span>
           )}
         </div>
       )}
 
-      <div className="flex items-center gap-6 pt-4 border-t">
+      {/* 底部互动栏 */}
+      <div className="flex items-center gap-5 pt-3 border-t border-gray-100 pl-2">
         <button
           onClick={handleLike}
           className={cn(
-            'flex items-center gap-2 transition-colors',
-            liked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
+            'flex items-center gap-1.5 transition-all',
+            liked ? 'text-red-500' : 'text-gray-400 hover:text-red-500'
           )}
         >
-          <Heart className={cn('w-5 h-5', liked && 'fill-current')} />
-          <span className="text-sm">{likeCount}</span>
+          <Heart className={cn('w-4 h-4 transition-transform hover:scale-110', liked && 'fill-current')} />
+          <span className="text-xs font-medium">{likeCount}</span>
         </button>
 
-        <div className="flex items-center gap-2 text-gray-500">
-          <MessageCircle className="w-5 h-5" />
-          <span className="text-sm">{post.comments}</span>
+        <div className="flex items-center gap-1.5 text-gray-400">
+          <MessageCircle className="w-4 h-4" />
+          <span className="text-xs font-medium">{post.comments}</span>
         </div>
 
         <button
           onClick={handleBookmark}
           className={cn(
-            'flex items-center gap-2 transition-colors',
-            bookmarked ? 'text-purple-600' : 'text-gray-500 hover:text-purple-600'
+            'flex items-center gap-1.5 transition-all',
+            bookmarked ? 'text-purple-500' : 'text-gray-400 hover:text-purple-500'
           )}
         >
-          <Bookmark className={cn('w-5 h-5', bookmarked && 'fill-current')} />
-          <span className="text-sm">{bookmarkCount}</span>
+          <Bookmark className={cn('w-4 h-4 transition-transform hover:scale-110', bookmarked && 'fill-current')} />
+          <span className="text-xs font-medium">{bookmarkCount}</span>
         </button>
 
-        <div className="flex items-center gap-2 text-gray-500 ml-auto">
-          <MessageCircle className="w-4 h-4" />
-          <span className="text-sm">{post.views} 次浏览</span>
+        <div className="flex items-center gap-1.5 text-gray-400 ml-auto">
+          <Eye className="w-4 h-4" />
+          <span className="text-xs">{post.views}</span>
         </div>
       </div>
     </div>
