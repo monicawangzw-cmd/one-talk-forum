@@ -131,7 +131,7 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
   const isAdmin = data?.user?.isAdmin || user?.isAdmin;
 
   const tabs = [
-    { key: 'profile', label: '资料', icon: User },
+    { key: 'profile', label: '资料', icon: User, count: 0 },
     { key: 'posts', label: '帖子', icon: FileText, count: stats.posts },
     { key: 'liked', label: '点赞', icon: Heart, count: stats.liked },
     { key: 'bookmarked', label: '收藏', icon: Bookmark, count: stats.bookmarked },
