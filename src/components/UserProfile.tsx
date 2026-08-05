@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { User, Lock, FileText, Heart, Bookmark, MessageSquare, Save, Shield, Calendar, Camera } from 'lucide-react';
+import { User, Lock, FileText, Heart, Bookmark, MessageSquare, Save, Shield, Calendar, Camera, Users } from 'lucide-react';
 import Modal from './ui/Modal';
 import { formatRelativeTime, cn } from '@/lib/utils';
 import type { User as UserType } from '@/types';
@@ -14,7 +14,7 @@ interface UserProfileProps {
 }
 
 export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: UserProfileProps) {
-  const [activeTab, setActiveTab] = useState<'profile' | 'posts' | 'liked' | 'bookmarked' | 'comments' | 'reports'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'posts' | 'liked' | 'bookmarked' | 'comments' | 'reports' | 'following' | 'followers'>('profile');
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [reports, setReports] = useState<any[]>([]);
@@ -94,14 +94,12 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
     }
   };
 
-  // 跳转到被举报的帖子
   const handleViewReportedPost = async (postId: string) => {
     try {
       const res = await fetch(`/api/posts/${postId}`);
       const data = await res.json();
       if (res.ok && data.post) {
         onClose();
-        // 通过全局事件通知主页打开帖子详情
         window.dispatchEvent(new CustomEvent('openPost', { detail: data.post }));
       } else {
         alert('该帖子可能已被删除');
@@ -182,7 +180,7 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
     }
   };
 
-  const stats = data?.stats || { posts: 0, liked: 0, bookmarked: 0, comments: 0 };
+  const stats = data?.stats || { posts: 0, liked: 0, bookmarked: 0, comments: 0, following: 0, followers: 0 };
   const isAdmin = data?.user?.isAdmin || user?.isAdmin;
 
   const tabs = isAdmin ? [
@@ -191,6 +189,8 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
     { key: 'liked', label: '点赞', icon: Heart, count: stats.liked },
     { key: 'bookmarked', label: '收藏', icon: Bookmark, count: stats.bookmarked },
     { key: 'comments', label: '评论', icon: MessageSquare, count: stats.comments },
+    { key: 'following', label: '关注', icon: Users, count: stats.following },
+    { key: 'followers', label: '粉丝', icon: Users, count: stats.followers },
     { key: 'reports', label: '举报', icon: Shield, count: reports.filter(r => r.status === 'pending').length },
   ] : [
     { key: 'profile', label: '资料', icon: User, count: 0 },
@@ -198,6 +198,8 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
     { key: 'liked', label: '点赞', icon: Heart, count: stats.liked },
     { key: 'bookmarked', label: '收藏', icon: Bookmark, count: stats.bookmarked },
     { key: 'comments', label: '评论', icon: MessageSquare, count: stats.comments },
+    { key: 'following', label: '关注', icon: Users, count: stats.following },
+    { key: 'followers', label: '粉丝', icon: Users, count: stats.followers },
   ];
 
   return (
@@ -241,17 +243,19 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
             </div>
           </div>
 
-          <div className="relative grid grid-cols-4 gap-2 mt-5">
+          <div className="relative grid grid-cols-6 gap-2 mt-5">
             {[
               { label: '帖子', value: stats.posts, icon: FileText },
               { label: '点赞', value: stats.liked, icon: Heart },
               { label: '收藏', value: stats.bookmarked, icon: Bookmark },
               { label: '评论', value: stats.comments, icon: MessageSquare },
+              { label: '关注', value: stats.following, icon: Users },
+              { label: '粉丝', value: stats.followers, icon: Users },
             ].map((item) => (
-              <div key={item.label} className="bg-white/15 backdrop-blur-sm rounded-xl p-3 text-center border border-white/10">
-                <item.icon className="w-4 h-4 mx-auto mb-1 opacity-80" />
-                <div className="text-2xl font-bold">{item.value}</div>
-                <div className="text-xs text-white/70">{item.label}</div>
+              <div key={item.label} className="bg-white/15 backdrop-blur-sm rounded-xl p-2 text-center border border-white/10">
+                <item.icon className="w-3 h-3 mx-auto mb-0.5 opacity-80" />
+                <div className="text-lg font-bold leading-tight">{item.value}</div>
+                <div className="text-[10px] text-white/70">{item.label}</div>
               </div>
             ))}
           </div>
@@ -264,7 +268,7 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
               key={tab.key}
               onClick={() => setActiveTab(tab.key as any)}
               className={cn(
-                'flex-1 min-w-[60px] flex flex-col items-center justify-center gap-0.5 py-3 text-xs font-medium border-b-2 transition-all relative',
+                'flex-1 min-w-[55px] flex flex-col items-center justify-center gap-0.5 py-3 text-xs font-medium border-b-2 transition-all relative',
                 activeTab === tab.key
                   ? 'border-purple-600 text-purple-600'
                   : 'border-transparent text-gray-400 hover:text-gray-600'
@@ -296,7 +300,6 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
             </div>
           ) : activeTab === 'profile' ? (
             <div className="space-y-6">
-              {/* 头像上传 */}
               <div className="flex items-center gap-5">
                 <div className="relative">
                   <div className="w-24 h-24 rounded-2xl overflow-hidden border-2 border-gray-200 shadow-md flex items-center justify-center bg-gray-50 text-2xl font-bold text-gray-400">
@@ -338,7 +341,6 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
                 </div>
               </div>
 
-              {/* 资料编辑 */}
               <div className="border-t pt-6">
                 <div className="flex items-center gap-2 mb-4">
                   <User className="w-5 h-5 text-purple-600" />
@@ -447,6 +449,10 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
                 ))
               )}
             </div>
+          ) : activeTab === 'following' ? (
+            <UserList users={data?.followingUsers || []} emptyText="还没有关注的人" />
+          ) : activeTab === 'followers' ? (
+            <UserList users={data?.followerUsers || []} emptyText="还没有粉丝" />
           ) : activeTab === 'reports' && isAdmin ? (
             <div className="space-y-3">
               {reports.length === 0 ? (
@@ -564,6 +570,39 @@ function PostList({ posts, emptyText }: { posts: any[]; emptyText: string }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// 用户列表子组件（关注/粉丝）
+function UserList({ users, emptyText }: { users: any[]; emptyText: string }) {
+  if (users.length === 0) {
+    return (
+      <div className="text-center py-12 text-gray-400">
+        <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
+        {emptyText}
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-3">
+      {users.map((u) => (
+        <div key={u.id} className="flex items-center gap-3 p-3 bg-gray-50/80 rounded-xl hover:bg-gray-100 transition-all">
+          <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold flex-shrink-0">
+            {u.avatar ? (
+              <img src={u.avatar} alt="" className="w-full h-full object-cover" />
+            ) : (
+              u.username?.[0]?.toUpperCase() || 'U'
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-gray-900 text-sm truncate">{u.username}</div>
+            {u.bio && (
+              <p className="text-xs text-gray-500 truncate mt-0.5">{u.bio}</p>
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

@@ -42,6 +42,17 @@ export async function GET(req: NextRequest) {
         return { ...c, _id: c.id, postTitle: post?.title || '已删除的帖子' };
       });
 
+    const { getFollowingIds, getFollowerIds, getUsers } = await import('@/lib/db');
+    const followingIds = await getFollowingIds(user.id);
+    const followerIds = await getFollowerIds(user.id);
+    const allUsers = await getUsers();
+    const followingUsers = followingIds.map(id => allUsers.find(u => u.id === id)).filter(Boolean).map((u: any) => ({
+      id: u.id, username: u.username, avatar: u.avatar, bio: u.bio,
+    }));
+    const followerUsers = followerIds.map(id => allUsers.find(u => u.id === id)).filter(Boolean).map((u: any) => ({
+      id: u.id, username: u.username, avatar: u.avatar, bio: u.bio,
+    }));
+
     return NextResponse.json({
       success: true,
       user: {
@@ -58,11 +69,15 @@ export async function GET(req: NextRequest) {
         liked: myLikedPosts.length,
         bookmarked: myBookmarkedPosts.length,
         comments: myComments.length,
+        following: followingIds.length,
+        followers: followerIds.length,
       },
       myPosts,
       myLikedPosts,
       myBookmarkedPosts,
       myComments,
+      followingUsers,
+      followerUsers,
     });
   } catch (error) {
     console.error('获取用户信息错误:', error);

@@ -427,7 +427,7 @@ export default function Home() {
                       selectedPost.author?.username?.[0]?.toUpperCase() || 'U'
                     )}
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <div className="font-semibold text-gray-900 flex items-center gap-2">
                       {selectedPost.author?.username}
                     </div>
@@ -435,6 +435,9 @@ export default function Home() {
                       {formatRelativeTime(selectedPost.createdAt)}
                     </div>
                   </div>
+                  {user && selectedPost.author?._id !== user.id && (
+                    <FollowButton targetUserId={selectedPost.author._id} currentUserId={user.id} />
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   {user && selectedPost.author?._id !== user.id && (
@@ -682,4 +685,62 @@ function formatFileSize(bytes: number): string {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+// 关注按钮组件
+function FollowButton({ targetUserId, currentUserId }: { targetUserId: string; currentUserId: string }) {
+  const [following, setFollowing] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const checkFollow = async () => {
+      try {
+        const res = await fetch(`/api/follow?targetId=${targetUserId}`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setFollowing(data.following);
+        }
+      } catch (err) {
+        console.error('查询关注失败', err);
+      }
+    };
+    checkFollow();
+  }, [targetUserId]);
+
+  const handleToggleFollow = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/follow', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ targetId: targetUserId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setFollowing(data.following);
+      }
+    } catch (err) {
+      console.error('关注失败', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleToggleFollow}
+      disabled={loading}
+      className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+        following
+          ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          : 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 shadow-md'
+      }`}
+    >
+      {loading ? '...' : following ? '已关注' : '+ 关注'}
+    </button>
+  );
 }

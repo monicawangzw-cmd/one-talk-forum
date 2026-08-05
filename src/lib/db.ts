@@ -306,3 +306,61 @@ export async function hasUserReported(userId: string, postId: string): Promise<b
   const reports = await getReports();
   return reports.some(r => r.reporterId === userId && r.postId === postId);
 }
+
+// ============ 关注相关操作 ============
+
+export interface FollowRecord {
+  id: string;
+  followerId: string;
+  followingId: string;
+  createdAt: string;
+}
+
+export async function getFollows(): Promise<FollowRecord[]> {
+  return getItem<FollowRecord[]>('follows', []);
+}
+
+export async function saveFollows(follows: FollowRecord[]): Promise<void> {
+  await setItem('follows', follows);
+}
+
+// 关注/取消关注（切换）
+export async function toggleFollow(followerId: string, followingId: string): Promise<boolean> {
+  if (followerId === followingId) return false;
+  const follows = await getFollows();
+  const existing = follows.find(f => f.followerId === followerId && f.followingId === followingId);
+  if (existing) {
+    // 已关注，取消
+    const filtered = follows.filter(f => !(f.followerId === followerId && f.followingId === followingId));
+    await saveFollows(filtered);
+    return false;
+  } else {
+    // 未关注，添加
+    follows.unshift({
+      id: generateId(),
+      followerId,
+      followingId,
+      createdAt: new Date().toISOString(),
+    });
+    await saveFollows(follows);
+    return true;
+  }
+}
+
+// 是否已关注
+export async function isFollowing(followerId: string, followingId: string): Promise<boolean> {
+  const follows = await getFollows();
+  return follows.some(f => f.followerId === followerId && f.followingId === followingId);
+}
+
+// 获取我关注的人ID列表
+export async function getFollowingIds(userId: string): Promise<string[]> {
+  const follows = await getFollows();
+  return follows.filter(f => f.followerId === userId).map(f => f.followingId);
+}
+
+// 获取关注我的人ID列表（粉丝）
+export async function getFollowerIds(userId: string): Promise<string[]> {
+  const follows = await getFollows();
+  return follows.filter(f => f.followingId === userId).map(f => f.followerId);
+}
