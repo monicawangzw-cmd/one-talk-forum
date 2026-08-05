@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import { createComment, findUserById, getCommentsByPostId, findPostById } from '@/lib/db';
+import { createComment, findUserById, getCommentsByPostId, findPostById, createNotification } from '@/lib/db';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'forum-secret-key-2024';
 
@@ -37,8 +37,8 @@ export async function POST(req: NextRequest) {
     }
 
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
-    const user = await findUserById(decoded.userId);
-    if (!user) {
+    const actor = await findUserById(decoded.userId);
+    if (!actor) {
       return NextResponse.json({ error: '用户不存在' }, { status: 401 });
     }
 
@@ -55,9 +55,21 @@ export async function POST(req: NextRequest) {
     const comment = await createComment({
       content,
       postId,
-      authorId: user.id,
-      authorName: user.username,
+      authorId: actor.id,
+      authorName: actor.username,
       parentCommentId: parentCommentId || undefined,
+    });
+
+    // 给帖子作者发通知
+    await createNotification({
+      userId: post.authorId,
+      actorId: actor.id,
+      actorName: actor.username,
+      actorAvatar: actor.avatar,
+      type: 'comment',
+      content: '评论了你的帖子',
+      postId: post.id,
+      postTitle: post.title,
     });
 
     return NextResponse.json({

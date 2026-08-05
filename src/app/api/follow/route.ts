@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import { toggleFollow, isFollowing, findUserById } from '@/lib/db';
+import { toggleFollow, isFollowing, findUserById, createNotification } from '@/lib/db';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'forum-secret-key-2024';
 
@@ -36,6 +36,11 @@ export async function POST(req: NextRequest) {
     }
 
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+    const actor = await findUserById(decoded.userId);
+    if (!actor) {
+      return NextResponse.json({ error: '用户不存在' }, { status: 401 });
+    }
+
     const { targetId } = await req.json();
     if (!targetId) {
       return NextResponse.json({ error: '缺少目标用户' }, { status: 400 });
@@ -47,6 +52,19 @@ export async function POST(req: NextRequest) {
     }
 
     const following = await toggleFollow(decoded.userId, targetId);
+
+    // 关注时发通知
+    if (following) {
+      await createNotification({
+        userId: targetUser.id,
+        actorId: actor.id,
+        actorName: actor.username,
+        actorAvatar: actor.avatar,
+        type: 'follow',
+        content: '关注了你',
+      });
+    }
+
     return NextResponse.json({ success: true, following });
   } catch (error) {
     console.error('关注错误:', error);

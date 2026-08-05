@@ -364,3 +364,75 @@ export async function getFollowerIds(userId: string): Promise<string[]> {
   const follows = await getFollows();
   return follows.filter(f => f.followingId === userId).map(f => f.followerId);
 }
+
+// ============ 通知相关操作 ============
+
+export interface NotificationRecord {
+  id: string;
+  userId: string;        // 接收通知的用户
+  actorId: string;       // 触发通知的用户
+  actorName: string;
+  actorAvatar?: string;
+  type: 'like' | 'comment' | 'follow';
+  content: string;       // 通知描述
+  postId?: string;       // 相关帖子（点赞/评论）
+  postTitle?: string;
+  read: boolean;
+  createdAt: string;
+}
+
+export async function getNotifications(): Promise<NotificationRecord[]> {
+  return getItem<NotificationRecord[]>('notifications', []);
+}
+
+export async function saveNotifications(notifications: NotificationRecord[]): Promise<void> {
+  await setItem('notifications', notifications);
+}
+
+export async function createNotification(data: {
+  userId: string;
+  actorId: string;
+  actorName: string;
+  actorAvatar?: string;
+  type: 'like' | 'comment' | 'follow';
+  content: string;
+  postId?: string;
+  postTitle?: string;
+}): Promise<void> {
+  // 不给自己发通知
+  if (data.userId === data.actorId) return;
+
+  const notifications = await getNotifications();
+  notifications.unshift({
+    id: generateId(),
+    userId: data.userId,
+    actorId: data.actorId,
+    actorName: data.actorName,
+    actorAvatar: data.actorAvatar,
+    type: data.type,
+    content: data.content,
+    postId: data.postId,
+    postTitle: data.postTitle,
+    read: false,
+    createdAt: new Date().toISOString(),
+  });
+  await saveNotifications(notifications);
+}
+
+export async function getNotificationsByUser(userId: string): Promise<NotificationRecord[]> {
+  const notifications = await getNotifications();
+  return notifications.filter(n => n.userId === userId);
+}
+
+export async function getUnreadCount(userId: string): Promise<number> {
+  const notifications = await getNotifications();
+  return notifications.filter(n => n.userId === userId && !n.read).length;
+}
+
+export async function markAllRead(userId: string): Promise<void> {
+  const notifications = await getNotifications();
+  notifications.forEach(n => {
+    if (n.userId === userId) n.read = true;
+  });
+  await saveNotifications(notifications);
+}
