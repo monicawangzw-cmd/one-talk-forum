@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getPosts } from '@/lib/db';
+import { getPosts, getUsers } from '@/lib/db';
 
 export async function GET() {
   try {
@@ -12,13 +12,20 @@ export async function GET() {
 
     const topPosts = sorted.slice(0, 50);
 
+    // 批量查询作者头像
+    const allUsers = await getUsers();
+    const userMap = new Map(allUsers.map(u => [u.id, u]));
+
     return NextResponse.json({
       success: true,
-      posts: topPosts.map(p => ({
-        ...p,
-        _id: p.id,
-        author: { _id: p.authorId, username: p.authorName },
-      })),
+      posts: topPosts.map(p => {
+        const author = userMap.get(p.authorId);
+        return {
+          ...p,
+          _id: p.id,
+          author: { _id: p.authorId, username: p.authorName, avatar: author?.avatar },
+        };
+      }),
     });
   } catch (error) {
     console.error('获取热点榜错误:', error);

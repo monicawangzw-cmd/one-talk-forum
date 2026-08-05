@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { User, Lock, FileText, Heart, Bookmark, MessageSquare, Save } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { User, Lock, FileText, Heart, Bookmark, MessageSquare, Save, Shield, Calendar, Camera } from 'lucide-react';
 import Modal from './ui/Modal';
-import { formatRelativeTime } from '@/lib/utils';
+import { formatRelativeTime, cn } from '@/lib/utils';
 import type { User as UserType } from '@/types';
 
 interface UserProfileProps {
@@ -18,20 +18,22 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // 编辑表单
   const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
+  const [avatar, setAvatar] = useState(user?.avatar || '');
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [message, setMessage] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen && user) {
       fetchUserData();
       setUsername(user.username);
       setBio(user.bio || '');
+      setAvatar(user.avatar || '');
     }
   }, [isOpen, user]);
 
@@ -44,12 +46,29 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
       const result = await res.json();
       if (res.ok) {
         setData(result);
+        setAvatar(result.user?.avatar || '');
       }
     } catch (err) {
       console.error('获取用户数据失败', err);
     } finally {
       setLoading(false);
     }
+  };
+
+  // 头像上传：转 base64
+  const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setMessage('❌ 头像图片不能超过2MB');
+      setTimeout(() => setMessage(''), 3000);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAvatar(reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSaveProfile = async () => {
@@ -62,7 +81,7 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify({ username, bio }),
+        body: JSON.stringify({ username, bio, avatar }),
       });
       const result = await res.json();
       if (res.ok) {
@@ -109,64 +128,95 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
   };
 
   const stats = data?.stats || { posts: 0, liked: 0, bookmarked: 0, comments: 0 };
+  const isAdmin = data?.user?.isAdmin || user?.isAdmin;
+
+  const tabs = [
+    { key: 'profile', label: '资料', icon: User },
+    { key: 'posts', label: '帖子', icon: FileText, count: stats.posts },
+    { key: 'liked', label: '点赞', icon: Heart, count: stats.liked },
+    { key: 'bookmarked', label: '收藏', icon: Bookmark, count: stats.bookmarked },
+    { key: 'comments', label: '评论', icon: MessageSquare, count: stats.comments },
+  ] as const;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="个人中心" size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title="" size="lg">
       <div className="p-0">
         {/* 顶部用户信息卡片 */}
-        <div className="p-6 bg-gradient-to-r from-purple-600 to-pink-600 text-white">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center text-2xl font-bold">
-              {user?.username?.[0]?.toUpperCase() || 'U'}
+        <div className="relative p-6 bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 text-white overflow-hidden">
+          <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
+          <div className="absolute -bottom-16 -left-10 w-32 h-32 bg-purple-300/20 rounded-full blur-2xl"></div>
+
+          <div className="relative flex items-center gap-4">
+            {/* 头像 - 可上传图片 */}
+            <div className="relative">
+              <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-white/30 shadow-lg bg-white/20 backdrop-blur-sm flex items-center justify-center text-3xl font-bold">
+                {avatar ? (
+                  <img src={avatar} alt="头像" className="w-full h-full object-cover" />
+                ) : (
+                  user?.username?.[0]?.toUpperCase() || 'U'
+                )}
+              </div>
+              {isAdmin && (
+                <div className="absolute -bottom-2 -left-2 w-7 h-7 bg-red-500 rounded-full flex items-center justify-center border-2 border-white shadow-lg" title="管理员">
+                  <Shield className="w-4 h-4" />
+                </div>
+              )}
             </div>
-            <div>
-              <h2 className="text-2xl font-bold">{user?.username}</h2>
-              <p className="text-white/80 text-sm">📱 {user?.phone}</p>
-              <p className="text-white/60 text-xs mt-1">
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <h2 className="text-2xl font-bold">{user?.username}</h2>
+                {isAdmin && (
+                  <span className="px-2 py-0.5 bg-red-500/90 rounded-full text-xs font-medium">管理员</span>
+                )}
+              </div>
+              <p className="text-white/80 text-sm mt-1">📱 {user?.phone?.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')}</p>
+              <p className="text-white/60 text-xs mt-0.5 flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
                 注册于 {user ? formatRelativeTime(user.createdAt) : ''}
               </p>
+              {user?.bio && (
+                <p className="text-white/90 text-sm mt-2 line-clamp-2">{user.bio}</p>
+              )}
             </div>
           </div>
-          <div className="grid grid-cols-4 gap-2 mt-4">
-            <div className="bg-white/20 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold">{stats.posts}</div>
-              <div className="text-xs">我的帖子</div>
-            </div>
-            <div className="bg-white/20 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold">{stats.liked}</div>
-              <div className="text-xs">点赞</div>
-            </div>
-            <div className="bg-white/20 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold">{stats.bookmarked}</div>
-              <div className="text-xs">收藏</div>
-            </div>
-            <div className="bg-white/20 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold">{stats.comments}</div>
-              <div className="text-xs">评论</div>
-            </div>
+
+          {/* 统计卡片 */}
+          <div className="relative grid grid-cols-4 gap-2 mt-5">
+            {[
+              { label: '帖子', value: stats.posts, icon: FileText },
+              { label: '点赞', value: stats.liked, icon: Heart },
+              { label: '收藏', value: stats.bookmarked, icon: Bookmark },
+              { label: '评论', value: stats.comments, icon: MessageSquare },
+            ].map((item) => (
+              <div key={item.label} className="bg-white/15 backdrop-blur-sm rounded-xl p-3 text-center border border-white/10">
+                <item.icon className="w-4 h-4 mx-auto mb-1 opacity-80" />
+                <div className="text-2xl font-bold">{item.value}</div>
+                <div className="text-xs text-white/70">{item.label}</div>
+              </div>
+            ))}
           </div>
         </div>
 
         {/* 标签栏 */}
-        <div className="flex border-b sticky top-0 bg-white z-10">
-          {[
-            { key: 'profile', label: '资料设置', icon: User },
-            { key: 'posts', label: '我的帖子', icon: FileText },
-            { key: 'liked', label: '我的点赞', icon: Heart },
-            { key: 'bookmarked', label: '我的收藏', icon: Bookmark },
-            { key: 'comments', label: '我的评论', icon: MessageSquare },
-          ].map((tab) => (
+        <div className="flex border-b border-gray-100 sticky top-0 bg-white z-10 px-2">
+          {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key as any)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-medium border-b-2 transition-all ${
+              className={cn(
+                'flex-1 flex flex-col items-center justify-center gap-0.5 py-3 text-xs font-medium border-b-2 transition-all relative',
                 activeTab === tab.key
                   ? 'border-purple-600 text-purple-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+                  : 'border-transparent text-gray-400 hover:text-gray-600'
+              )}
             >
               <tab.icon className="w-4 h-4" />
-              {tab.label}
+              <span>{tab.label}</span>
+              {tab.count !== undefined && tab.count > 0 && (
+                <span className="absolute top-2 right-1/4 px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded-full text-[10px] leading-none">
+                  {tab.count}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -174,18 +224,66 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
         {/* 内容区 */}
         <div className="p-6 min-h-[300px]">
           {message && (
-            <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-700">
+            <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-700 animate-fade-in-down">
               {message}
             </div>
           )}
 
           {loading ? (
-            <div className="text-center py-12 text-gray-500">加载中...</div>
+            <div className="text-center py-12">
+              <div className="inline-block w-8 h-8 border-3 border-purple-200 border-t-purple-500 rounded-full animate-spin"></div>
+              <p className="mt-3 text-sm text-gray-400">加载中...</p>
+            </div>
           ) : activeTab === 'profile' ? (
             <div className="space-y-6">
+              {/* 头像上传 */}
+              <div className="flex items-center gap-5">
+                <div className="relative">
+                  <div className="w-24 h-24 rounded-2xl overflow-hidden border-2 border-gray-200 shadow-md flex items-center justify-center bg-gray-50 text-2xl font-bold text-gray-400">
+                    {avatar ? (
+                      <img src={avatar} alt="头像" className="w-full h-full object-cover" />
+                    ) : (
+                      user?.username?.[0]?.toUpperCase() || 'U'
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute -bottom-2 -right-2 w-9 h-9 bg-purple-600 rounded-full flex items-center justify-center text-white shadow-lg border-2 border-white hover:bg-purple-700 transition-all"
+                    title="更换头像"
+                  >
+                    <Camera className="w-4 h-4" />
+                  </button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleAvatarSelect}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-1">头像</h3>
+                  <p className="text-sm text-gray-500">点击相机图标上传图片</p>
+                  <p className="text-xs text-gray-400 mt-1">支持 JPG/PNG，最大2MB</p>
+                  {avatar && (
+                    <button
+                      type="button"
+                      onClick={() => setAvatar('')}
+                      className="text-xs text-red-500 hover:text-red-600 mt-1"
+                    >
+                      移除头像
+                    </button>
+                  )}
+                </div>
+              </div>
+
               {/* 资料编辑 */}
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-4">编辑个人资料</h3>
+              <div className="border-t pt-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <User className="w-5 h-5 text-purple-600" />
+                  <h3 className="font-semibold text-gray-900">编辑个人资料</h3>
+                </div>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">昵称</label>
@@ -193,7 +291,7 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
                       type="text"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-gray-50/50"
                       placeholder="请输入昵称"
                     />
                   </div>
@@ -203,14 +301,14 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
                       value={bio}
                       onChange={(e) => setBio(e.target.value)}
                       rows={3}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none bg-gray-50/50"
                       placeholder="介绍一下自己吧..."
                     />
                   </div>
                   <button
                     onClick={handleSaveProfile}
                     disabled={savingProfile}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-pink-700 transition-all disabled:opacity-50"
+                    className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-medium hover:from-purple-700 hover:to-pink-700 transition-all disabled:opacity-50 shadow-md hover:shadow-lg"
                   >
                     <Save className="w-4 h-4" />
                     {savingProfile ? '保存中...' : '保存资料'}
@@ -219,7 +317,10 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
               </div>
 
               <div className="border-t pt-6">
-                <h3 className="font-semibold text-gray-900 mb-4">修改密码</h3>
+                <div className="flex items-center gap-2 mb-4">
+                  <Lock className="w-5 h-5 text-gray-700" />
+                  <h3 className="font-semibold text-gray-900">修改密码</h3>
+                </div>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">原密码</label>
@@ -227,7 +328,7 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
                       type="password"
                       value={oldPassword}
                       onChange={(e) => setOldPassword(e.target.value)}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-gray-50/50"
                       placeholder="请输入原密码"
                     />
                   </div>
@@ -237,14 +338,14 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
                       type="password"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-gray-50/50"
                       placeholder="至少6位"
                     />
                   </div>
                   <button
                     onClick={handleChangePassword}
                     disabled={savingPassword || !oldPassword || !newPassword}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-gray-800 text-white rounded-lg font-medium hover:bg-gray-900 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 px-6 py-2.5 bg-gray-800 text-white rounded-xl font-medium hover:bg-gray-900 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Lock className="w-4 h-4" />
                     {savingPassword ? '修改中...' : '修改密码'}
@@ -267,10 +368,11 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
                 </div>
               ) : (
                 data.myComments.map((comment: any) => (
-                  <div key={comment._id} className="p-4 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
+                  <div key={comment._id} className="relative p-4 bg-gray-50/80 rounded-xl border border-gray-100 hover:border-purple-200 transition-all overflow-hidden">
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-400 to-pink-400"></div>
+                    <div className="flex items-center gap-2 mb-2 pl-2">
                       <MessageSquare className="w-4 h-4 text-purple-500" />
-                      <span className="text-sm text-gray-500">评论于：</span>
+                      <span className="text-sm text-gray-500">评论于</span>
                       <span className="text-sm font-medium text-purple-600 truncate">
                         {comment.postTitle}
                       </span>
@@ -304,29 +406,41 @@ function PostList({ posts, emptyText }: { posts: any[]; emptyText: string }) {
   }
   return (
     <div className="space-y-3">
-      {posts.map((post) => (
-        <div key={post._id} className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
-          <div className="flex items-center gap-2 mb-2">
-            <span className={`px-2 py-0.5 rounded-full text-xs ${
-              post.category === 'professional'
-                ? 'bg-purple-100 text-purple-700'
-                : 'bg-pink-100 text-pink-700'
-            }`}>
-              {post.category === 'professional' ? '专业知识' : '生活服务'}
-            </span>
-            <span className="text-xs text-gray-400 ml-auto">
-              {formatRelativeTime(post.createdAt)}
-            </span>
+      {posts.map((post) => {
+        const isProfessional = post.category === 'professional';
+        return (
+          <div key={post._id} className="relative p-4 bg-white rounded-xl border border-gray-100 hover:border-purple-200 hover:shadow-md transition-all cursor-pointer overflow-hidden">
+            <div className={cn(
+              'absolute left-0 top-0 bottom-0 w-1',
+              isProfessional ? 'bg-gradient-to-b from-purple-400 to-purple-500' : 'bg-gradient-to-b from-pink-400 to-pink-500'
+            )}></div>
+            <div className="flex items-center gap-2 mb-2 pl-2">
+              <span className={cn(
+                'px-2 py-0.5 rounded-full text-xs font-medium',
+                isProfessional ? 'bg-purple-50 text-purple-600' : 'bg-pink-50 text-pink-600'
+              )}>
+                {isProfessional ? '专业知识' : '生活服务'}
+              </span>
+              {post.subCategory && (
+                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-50 text-gray-500">
+                  {post.subCategory}
+                </span>
+              )}
+              <span className="text-xs text-gray-400 ml-auto">
+                {formatRelativeTime(post.createdAt)}
+              </span>
+            </div>
+            <h4 className="font-semibold text-gray-900 mb-1 truncate pl-2">{post.title}</h4>
+            <p className="text-sm text-gray-500 line-clamp-2 pl-2 mb-2">{post.content}</p>
+            <div className="flex items-center gap-4 mt-2 text-xs text-gray-400 pl-2">
+              <span>❤️ {post.likes}</span>
+              <span>💬 {post.comments}</span>
+              <span>⭐ {post.bookmarks}</span>
+              <span>👁️ {post.views}</span>
+            </div>
           </div>
-          <h4 className="font-semibold text-gray-900 mb-1 truncate">{post.title}</h4>
-          <p className="text-sm text-gray-600 line-clamp-2">{post.content}</p>
-          <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
-            <span>❤️ {post.likes}</span>
-            <span>💬 {post.comments}</span>
-            <span>⭐ {post.bookmarks}</span>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

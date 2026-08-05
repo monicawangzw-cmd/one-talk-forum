@@ -30,11 +30,32 @@ export default function Home() {
     loadPosts();
   }, [selectedCategory]);
 
-  const checkAuth = () => {
+  const checkAuth = async () => {
     const token = localStorage.getItem('token');
     const savedUser = localStorage.getItem('user');
     if (token && savedUser) {
+      // 先用本地缓存的用户信息快速显示
       setUser(JSON.parse(savedUser));
+
+      // 再从服务器获取最新用户信息（保证头像等资料是最新的）
+      try {
+        const res = await fetch('/api/user', {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user) {
+            const latestUser = {
+              ...JSON.parse(savedUser),
+              ...data.user,
+            };
+            localStorage.setItem('user', JSON.stringify(latestUser));
+            setUser(latestUser);
+          }
+        }
+      } catch (err) {
+        // 获取失败也没关系，继续用本地缓存
+      }
     }
   };
 
@@ -191,19 +212,16 @@ export default function Home() {
               {user ? (
                 <>
                   <button
-                    onClick={() => setShowCreatePost(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full text-sm font-medium hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg hover:shadow-xl"
-                  >
-                    <Plus className="w-4 h-4" />
-                    发布
-                  </button>
-                  <button
                     onClick={() => setShowProfile(true)}
                     className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-sm hover:bg-purple-200 transition-all"
                     title="个人中心"
                   >
-                    <span className="w-6 h-6 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                      {user.username?.[0]?.toUpperCase() || 'U'}
+                    <span className="w-6 h-6 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-bold overflow-hidden">
+                      {user.avatar ? (
+                        <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        user.username?.[0]?.toUpperCase() || 'U'
+                      )}
                     </span>
                     <span className="font-semibold hidden sm:inline">{user.username}</span>
                     {user.isAdmin && (
@@ -335,8 +353,12 @@ export default function Home() {
             <div className="p-6 border-b">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-semibold">
-                    {selectedPost.author?.username?.[0]?.toUpperCase() || 'U'}
+                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-semibold overflow-hidden">
+                    {selectedPost.author?.avatar ? (
+                      <img src={selectedPost.author.avatar} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      selectedPost.author?.username?.[0]?.toUpperCase() || 'U'
+                    )}
                   </div>
                   <div>
                     <div className="font-semibold text-gray-900 flex items-center gap-2">
@@ -456,8 +478,12 @@ export default function Home() {
                   ) : (
                     comments.map((comment) => (
                       <div key={comment._id || comment.id} className="flex gap-3 p-3 bg-gray-50 rounded-lg">
-                        <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                          {comment.author?.username?.[0]?.toUpperCase() || 'U'}
+                        <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 overflow-hidden">
+                          {comment.author?.avatar ? (
+                            <img src={comment.author.avatar} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            comment.author?.username?.[0]?.toUpperCase() || 'U'
+                          )}
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">

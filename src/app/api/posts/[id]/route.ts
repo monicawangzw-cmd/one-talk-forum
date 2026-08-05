@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import { findPostById, updatePost, deletePost, incrementPostViews, isUserAdminAsync } from '@/lib/db';
+import { findPostById, updatePost, deletePost, incrementPostViews, isUserAdminAsync, findUserById } from '@/lib/db';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'forum-secret-key-2024';
 
@@ -14,12 +14,13 @@ export async function GET(
     if (!post) {
       return NextResponse.json({ error: '帖子不存在' }, { status: 404 });
     }
+    const author = await findUserById(post.authorId);
     return NextResponse.json({
       success: true,
       post: {
         ...post,
         _id: post.id,
-        author: { _id: post.authorId, username: post.authorName },
+        author: { _id: post.authorId, username: post.authorName, avatar: author?.avatar, bio: author?.bio },
       },
     });
   } catch (error) {

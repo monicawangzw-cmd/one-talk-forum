@@ -82,12 +82,16 @@ export default function PostCard({ post, user, onPostClick }: PostCardProps) {
       <div className="flex items-start justify-between mb-3 pl-2">
         <div className="flex items-center gap-2.5">
           <div className={cn(
-            'w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-md',
+            'w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-md overflow-hidden',
             isProfessional
               ? 'bg-gradient-to-br from-purple-500 to-purple-600'
               : 'bg-gradient-to-br from-pink-500 to-pink-600'
           )}>
-            {post.author?.username?.[0]?.toUpperCase() || 'U'}
+            {post.author?.avatar ? (
+              <img src={post.author.avatar} alt="" className="w-full h-full object-cover" />
+            ) : (
+              post.author?.username?.[0]?.toUpperCase() || 'U'
+            )}
           </div>
           <div>
             <div className="font-semibold text-gray-900 text-sm leading-tight">{post.author?.username}</div>

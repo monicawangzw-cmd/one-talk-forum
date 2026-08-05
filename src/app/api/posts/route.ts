@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
       post: {
         ...post,
         _id: post.id,
-        author: { _id: post.authorId, username: post.authorName },
+        author: { _id: post.authorId, username: post.authorName, avatar: user.avatar },
       },
     });
   } catch (error) {
@@ -77,16 +77,25 @@ export async function GET(req: NextRequest) {
       posts = posts.filter(p => p.subCategory === subCategory);
     }
 
+    // 收集所有作者ID，批量查询头像
+    const authorIds = [...new Set(posts.map(p => p.authorId))];
+    const { getUsers } = await import('@/lib/db');
+    const allUsers = await getUsers();
+    const userMap = new Map(allUsers.map(u => [u.id, u]));
+
     const total = posts.length;
     const pagedPosts = posts.slice(skip, skip + limit);
 
     return NextResponse.json({
       success: true,
-      posts: pagedPosts.map(p => ({
-        ...p,
-        _id: p.id,
-        author: { _id: p.authorId, username: p.authorName },
-      })),
+      posts: pagedPosts.map(p => {
+        const author = userMap.get(p.authorId);
+        return {
+          ...p,
+          _id: p.id,
+          author: { _id: p.authorId, username: p.authorName, avatar: author?.avatar, bio: author?.bio },
+        };
+      }),
       pagination: {
         page,
         limit,
