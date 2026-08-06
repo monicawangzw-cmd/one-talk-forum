@@ -26,6 +26,7 @@ export default function Home() {
   const [reportReason, setReportReason] = useState('');
   const [reporting, setReporting] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [postReturnTarget, setPostReturnTarget] = useState<'none' | 'profile' | 'notifications'>('none');
 
   useEffect(() => {
     checkAuth();
@@ -205,7 +206,10 @@ export default function Home() {
 
   useEffect(() => {
     const handleOpenPost = (e: any) => {
-      if (e.detail) handlePostClick(e.detail);
+      if (e.detail) {
+        handlePostClick(e.detail);
+        setPostReturnTarget(e.detail.returnTarget || 'none');
+      }
     };
     window.addEventListener('openPost', handleOpenPost);
     return () => window.removeEventListener('openPost', handleOpenPost);
@@ -345,7 +349,23 @@ export default function Home() {
                   </div>
                   {user && selectedPost.author?._id !== user.id && <FollowButton targetUserId={selectedPost.author._id} />}
                 </div>
-                <button onClick={() => setSelectedPost(null)} className="p-2 hover:bg-gray-100 rounded-full">✕</button>
+                <div className="flex items-center gap-1">
+                  {postReturnTarget !== 'none' && (
+                    <button
+                      onClick={() => {
+                        setSelectedPost(null);
+                        if (postReturnTarget === 'profile') setShowProfile(true);
+                        setPostReturnTarget('none');
+                      }}
+                      className="flex items-center gap-1 px-2 py-1 hover:bg-purple-50 rounded-lg transition-colors text-gray-500 hover:text-purple-600"
+                      title="返回"
+                    >
+                      <span className="text-base">←</span>
+                      <span className="text-xs">返回</span>
+                    </button>
+                  )}
+                  <button onClick={() => { setSelectedPost(null); setPostReturnTarget('none'); }} className="p-2 hover:bg-gray-100 rounded-full">✕</button>
+                </div>
               </div>
               <div className="flex items-center gap-2 mb-3 flex-wrap">
                 {selectedPost.isPinned && <span className="px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-600">📌 置顶</span>}

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { User, Lock, FileText, Heart, Bookmark, MessageSquare, Save, Shield, Calendar, Camera, Users } from 'lucide-react';
+import { User, Lock, FileText, Heart, Bookmark, MessageSquare, Save, Shield, Calendar, Camera, Users, Bell } from 'lucide-react';
 import Modal from './ui/Modal';
 import { formatRelativeTime, cn } from '@/lib/utils';
 import type { User as UserType } from '@/types';
@@ -14,10 +14,13 @@ interface UserProfileProps {
 }
 
 export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: UserProfileProps) {
-  const [activeTab, setActiveTab] = useState<'profile' | 'posts' | 'liked' | 'bookmarked' | 'comments' | 'reports' | 'following' | 'followers'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'posts' | 'liked' | 'bookmarked' | 'comments' | 'reports' | 'following' | 'followers' | 'notifications'>('profile');
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [reports, setReports] = useState<any[]>([]);
+
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
@@ -38,7 +41,38 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
     }
   }, [isOpen, user]);
 
+  const fetchNotifications = async () => {
+    try {
+      const res = await fetch('/api/notifications', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setNotifications(data.notifications || []);
+        setUnreadCount(data.unreadCount || 0);
+      }
+    } catch (err) {
+      console.error('获取通知失败', err);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await fetch('/api/notifications', {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+      });
+      setUnreadCount(0);
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    } catch (err) {
+      console.error('标记已读失败', err);
+    }
+  };
+
   useEffect(() => {
+    if (isOpen && user) {
+      fetchNotifications();
+    }
     if (isOpen && user?.isAdmin) {
       fetchReports();
     }
@@ -100,7 +134,27 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
       const data = await res.json();
       if (res.ok && data.post) {
         onClose();
-        window.dispatchEvent(new CustomEvent('openPost', { detail: data.post }));
+        window.dispatchEvent(new CustomEvent('openPost', { detail: { ...data.post, returnTarget: 'profile' } }));
+      } else {
+        alert('该帖子可能已被删除');
+      }
+    } catch (err) {
+      alert('查看帖子失败');
+    }
+  };
+
+  // 跳转到通知相关的帖子
+  const handleViewNotificationPost = async (postId?: string) => {
+    if (!postId) {
+      alert('该通知没有关联帖子');
+      return;
+    }
+    try {
+      const res = await fetch(`/api/posts/${postId}`);
+      const data = await res.json();
+      if (res.ok && data.post) {
+        onClose();
+        window.dispatchEvent(new CustomEvent('openPost', { detail: { ...data.post, returnTarget: 'profile' } }));
       } else {
         alert('该帖子可能已被删除');
       }
@@ -191,6 +245,7 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
     { key: 'comments', label: '评论', icon: MessageSquare, count: stats.comments },
     { key: 'following', label: '关注', icon: Users, count: stats.following },
     { key: 'followers', label: '粉丝', icon: Users, count: stats.followers },
+    { key: 'notifications', label: '通知', icon: Bell, count: unreadCount },
     { key: 'reports', label: '举报', icon: Shield, count: reports.filter(r => r.status === 'pending').length },
   ] : [
     { key: 'profile', label: '资料', icon: User, count: 0 },
@@ -453,8 +508,62 @@ export default function UserProfile({ isOpen, onClose, user, onUserUpdate }: Use
             <UserList users={data?.followingUsers || []} emptyText="还没有关注的人" />
           ) : activeTab === 'followers' ? (
             <UserList users={data?.followerUsers || []} emptyText="还没有粉丝" />
+          ) : activeTab === 'notifications' ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setActiveTab('profile')} className="flex items-center gap-1 px-2 py-1 hover:bg-purple-50 rounded-lg transition-colors text-gray-500 hover:text-purple-600" title="返回资料">
+                    <span className="text-base">←</span>
+                    <span className="text-xs">返回</span>
+                  </button>
+                  <h3 className="font-semibold text-gray-900 text-sm">消息通知</h3>
+                </div>
+                {unreadCount > 0 && (
+                  <button onClick={handleMarkAllRead} className="text-xs text-purple-600 hover:text-purple-700 font-medium">
+                    全部已读
+                  </button>
+                )}
+              </div>
+              {notifications.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                  <Bell className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  暂无通知
+                </div>
+              ) : (
+                notifications.map((n) => (
+                  <div
+                    key={n.id}
+                    onClick={() => handleViewNotificationPost(n.postId)}
+                    className={`relative p-3 bg-white rounded-xl border ${!n.read ? 'border-purple-200 bg-purple-50/30' : 'border-gray-100'} overflow-hidden cursor-pointer hover:shadow-md transition-all`}
+                  >
+                    {!n.read && <div className="absolute left-0 top-0 bottom-0 w-1 bg-purple-500"></div>}
+                    <div className="flex items-start gap-2 pl-2">
+                      <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                        {n.actorAvatar ? <img src={n.actorAvatar} alt="" className="w-full h-full object-cover" /> : n.actorName?.[0]?.toUpperCase() || 'U'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-700">
+                          <span className="font-semibold text-gray-900">{n.actorName}</span>
+                          <span className="text-gray-500"> {n.content}</span>
+                        </p>
+                        {n.postTitle && <p className="text-xs text-gray-400 truncate mt-0.5">《{n.postTitle}》</p>}
+                        <p className="text-xs text-gray-400 mt-0.5">{formatRelativeTime(n.createdAt)}</p>
+                      </div>
+                      {!n.read && <span className="w-2 h-2 bg-red-500 rounded-full flex-shrink-0 mt-1.5"></span>}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           ) : activeTab === 'reports' && isAdmin ? (
             <div className="space-y-3">
+              <div className="flex items-center gap-2 mb-2">
+                <button onClick={() => setActiveTab('profile')} className="flex items-center gap-1 px-2 py-1 hover:bg-purple-50 rounded-lg transition-colors text-gray-500 hover:text-purple-600" title="返回资料">
+                  <span className="text-base">←</span>
+                  <span className="text-xs">返回</span>
+                </button>
+                <h3 className="font-semibold text-gray-900 text-sm">举报管理</h3>
+              </div>
               {reports.length === 0 ? (
                 <div className="text-center py-12 text-gray-400">
                   <Shield className="w-12 h-12 mx-auto mb-3 opacity-30" />
