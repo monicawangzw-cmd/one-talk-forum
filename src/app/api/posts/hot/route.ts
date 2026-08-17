@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getPosts, getUsers } from '@/lib/db';
 
+// 强制动态渲染，每次请求都重新查询数据库，避免 Next.js 缓存空结果
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const posts = await getPosts();
