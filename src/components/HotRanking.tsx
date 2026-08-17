@@ -41,53 +41,59 @@ export default function HotRanking({ onPostClick }: HotRankingProps) {
 
   // 计算热度分数
   const getScore = (post: Post) => post.likes + post.comments + post.bookmarks;
+  const maxScore = topPosts.length > 0 ? Math.max(...topPosts.map(getScore), 1) : 1;
 
   const getRankStyle = (index: number) => {
     switch (index) {
       case 0:
         return {
           bg: 'bg-gradient-to-br from-yellow-400 to-amber-500',
-          text: 'text-yellow-600',
-          ring: 'ring-yellow-300',
+          text: 'text-amber-600',
+          ring: 'ring-amber-200',
           label: '🥇',
+          gradient: 'from-amber-50 to-yellow-50/50',
         };
       case 1:
         return {
-          bg: 'bg-gradient-to-br from-gray-300 to-gray-400',
-          text: 'text-gray-500',
-          ring: 'ring-gray-300',
+          bg: 'bg-gradient-to-br from-slate-300 to-slate-400',
+          text: 'text-slate-500',
+          ring: 'ring-slate-200',
           label: '🥈',
+          gradient: 'from-slate-50 to-gray-50/50',
         };
       case 2:
         return {
           bg: 'bg-gradient-to-br from-orange-400 to-orange-600',
           text: 'text-orange-600',
-          ring: 'ring-orange-300',
+          ring: 'ring-orange-200',
           label: '🥉',
+          gradient: 'from-orange-50 to-amber-50/50',
         };
       default:
         return {
           bg: 'bg-gray-100',
           text: 'text-gray-400',
-          ring: 'ring-gray-200',
+          ring: 'ring-gray-100',
           label: '',
+          gradient: '',
         };
     }
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden sticky top-20">
+    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden sticky top-20">
       {/* 标题区 */}
-      <div className="relative p-5 bg-gradient-to-r from-purple-600 via-pink-500 to-orange-400 text-white overflow-hidden">
+      <div className="relative p-5 bg-gradient-to-br from-purple-600 via-indigo-600 to-purple-700 text-white overflow-hidden">
         <div className="absolute -top-8 -right-8 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
+        <div className="absolute -bottom-6 -left-6 w-20 h-20 bg-pink-400/20 rounded-full blur-2xl"></div>
         <div className="relative flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center ring-1 ring-white/30">
               <Flame className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-lg font-bold leading-tight">实时热点榜</h2>
-              <p className="text-xs text-white/70">Top 10 热门内容</p>
+              <p className="text-xs text-white/70 mt-0.5">Top 10 热门内容</p>
             </div>
           </div>
           <TrendingUp className="w-5 h-5 opacity-70" />
@@ -132,44 +138,37 @@ export default function HotRanking({ onPostClick }: HotRankingProps) {
             const style = getRankStyle(index);
             const score = getScore(post);
             const isTop3 = index < 3;
+            const percent = Math.round((score / maxScore) * 100);
 
             return (
               <div
                 key={post._id}
                 onClick={() => onPostClick(post)}
-                className={`group relative px-4 ${isTop3 ? 'py-3.5' : 'py-3'} hover:bg-gradient-to-r hover:from-purple-50 hover:to-transparent transition-all cursor-pointer border-b border-gray-50 last:border-0`}
+                className={`group relative px-4 ${isTop3 ? `py-3.5 bg-gradient-to-r ${style.gradient}` : 'py-3'} hover:bg-purple-50/60 transition-all cursor-pointer border-b border-gray-50 last:border-0`}
               >
                 <div className="flex items-center gap-3">
                   {/* 排名 */}
-                  <div className={`flex-shrink-0 ${isTop3 ? 'w-9 h-9' : 'w-7 h-7'} rounded-xl ${style.bg} flex items-center justify-center font-bold text-sm ${isTop3 ? 'text-white' : style.text} shadow-sm`}>
+                  <div className={`flex-shrink-0 ${isTop3 ? 'w-9 h-9' : 'w-7 h-7'} rounded-xl ${style.bg} flex items-center justify-center font-bold text-sm ${isTop3 ? 'text-white' : style.text} shadow-sm ring-2 ring-white`}>
                     {isTop3 ? <span className="text-base">{style.label}</span> : index + 1}
                   </div>
 
                   {/* 内容 */}
                   <div className="flex-1 min-w-0">
-                    <h4 className={`font-medium text-gray-800 truncate group-hover:text-purple-600 transition-colors ${isTop3 ? 'text-sm' : 'text-sm'}`}>
+                    <h4 className={`font-medium text-gray-800 truncate group-hover:text-purple-600 transition-colors text-sm`}>
                       {post.title}
                     </h4>
 
-                    {/* 数据 */}
-                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
-                      <span className="flex items-center gap-1">
-                        <span>❤️</span>
-                        {post.likes}
+                    {/* 热度进度条 + 数据 */}
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <div className="flex-1 h-1 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full bg-gradient-to-r ${isTop3 ? 'from-amber-400 to-orange-400' : 'from-purple-400 to-indigo-400'} transition-all duration-500`}
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                      <span className={`text-xs font-semibold ${style.text} flex-shrink-0`}>
+                        {score}
                       </span>
-                      <span className="flex items-center gap-1">
-                        <span>💬</span>
-                        {post.comments}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span>⭐</span>
-                        {post.bookmarks}
-                      </span>
-                      {isTop3 && (
-                        <span className={`ml-auto font-semibold ${style.text}`}>
-                          热度 {score}
-                        </span>
-                      )}
                     </div>
                   </div>
                 </div>
