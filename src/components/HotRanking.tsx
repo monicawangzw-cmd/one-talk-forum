@@ -83,9 +83,9 @@ export default function HotRanking({ onPostClick }: HotRankingProps) {
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden sticky top-20">
       {/* 标题区 */}
-      <div className="relative p-5 bg-gradient-to-br from-purple-600 via-indigo-600 to-purple-700 text-white overflow-hidden">
+      <div className="relative p-5 bg-gradient-to-r from-purple-600 via-pink-500 to-orange-400 text-white overflow-hidden">
         <div className="absolute -top-8 -right-8 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
-        <div className="absolute -bottom-6 -left-6 w-20 h-20 bg-pink-400/20 rounded-full blur-2xl"></div>
+        <div className="absolute -bottom-6 -left-6 w-20 h-20 bg-white/10 rounded-full blur-2xl"></div>
         <div className="relative flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center ring-1 ring-white/30">
@@ -162,7 +162,7 @@ export default function HotRanking({ onPostClick }: HotRankingProps) {
                     <div className="flex items-center gap-2 mt-1.5">
                       <div className="flex-1 h-1 bg-gray-100 rounded-full overflow-hidden">
                         <div
-                          className={`h-full rounded-full bg-gradient-to-r ${isTop3 ? 'from-amber-400 to-orange-400' : 'from-purple-400 to-indigo-400'} transition-all duration-500`}
+                          className={`h-full rounded-full bg-gradient-to-r ${isTop3 ? 'from-amber-400 to-orange-400' : 'from-purple-400 via-pink-400 to-orange-300'} transition-all duration-500`}
                           style={{ width: `${percent}%` }}
                         />
                       </div>
