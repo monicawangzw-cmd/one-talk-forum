@@ -339,30 +339,29 @@ export default function Home() {
       </nav>
 
       <div className="relative h-72 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-700 via-indigo-600 to-purple-800"></div>
-        {/* 网格纹理 */}
-        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-pink-500 to-orange-400 animate-gradient-x bg-[length:200%_200%]"></div>
+        <div className="absolute inset-0 bg-black/10"></div>
         {/* 浮动光斑 */}
-        <div className="absolute top-10 left-1/4 w-32 h-32 bg-pink-400/30 rounded-full blur-3xl animate-float"></div>
-        <div className="absolute bottom-10 right-1/3 w-44 h-44 bg-indigo-300/30 rounded-full blur-3xl animate-float-delayed"></div>
-        <div className="absolute top-1/2 right-20 w-28 h-28 bg-purple-300/20 rounded-full blur-2xl"></div>
+        <div className="absolute top-10 left-1/4 w-32 h-32 bg-white/20 rounded-full blur-3xl animate-float"></div>
+        <div className="absolute bottom-10 right-1/3 w-44 h-44 bg-purple-300/30 rounded-full blur-3xl animate-float-delayed"></div>
+        <div className="absolute top-1/2 right-20 w-28 h-28 bg-pink-300/20 rounded-full blur-2xl"></div>
         <div className="relative h-full flex flex-col items-center justify-center text-white px-4">
           <h2 className="text-4xl md:text-5xl font-bold mb-2 tracking-tight animate-fade-in-down drop-shadow-lg">
             One Talk
           </h2>
-          <p className="text-base md:text-lg text-white/80 mb-1 animate-fade-in-up drop-shadow font-light">你的职场与生活社区</p>
-          <p className="text-sm text-white/60 mb-6 animate-fade-in-up">专业知识 · 生活服务 · 自由交流</p>
+          <p className="text-base md:text-lg text-white/90 mb-1 animate-fade-in-up drop-shadow font-light">你的职场与生活社区</p>
+          <p className="text-sm text-white/70 mb-6 animate-fade-in-up">专业知识 · 生活服务 · 自由交流</p>
           {/* 数据条 */}
           <div className="flex gap-2 animate-fade-in-up">
-            <span className="px-4 py-2 bg-white/15 backdrop-blur-md rounded-xl text-sm border border-white/20 flex items-center gap-1.5">
+            <span className="px-4 py-2 bg-white/20 backdrop-blur-md rounded-xl text-sm border border-white/30 flex items-center gap-1.5">
               <span className="text-lg">📝</span>
               <span><b className="font-bold">{posts.length}</b> 篇帖子</span>
             </span>
-            <span className="px-4 py-2 bg-white/15 backdrop-blur-md rounded-xl text-sm border border-white/20 flex items-center gap-1.5">
+            <span className="px-4 py-2 bg-white/20 backdrop-blur-md rounded-xl text-sm border border-white/30 flex items-center gap-1.5">
               <span className="text-lg">🏷️</span>
               <span><b className="font-bold">{topTags.length}</b> 个标签</span>
             </span>
-            <span className="px-4 py-2 bg-white/15 backdrop-blur-md rounded-xl text-sm border border-white/20 flex items-center gap-1.5">
+            <span className="px-4 py-2 bg-white/20 backdrop-blur-md rounded-xl text-sm border border-white/30 flex items-center gap-1.5">
               <span className="text-lg">🔥</span>
               <span>实时热点</span>
             </span>
@@ -390,48 +389,44 @@ export default function Home() {
                     <span className="w-1 h-4 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></span>
                     热门标签
                   </span>
-                  <span className="text-xs text-gray-400">点击标签快速筛选</span>
+                  <span className="text-xs text-gray-400">颜色越深 · 热度越高</span>
                   {activeTag && (
                     <button onClick={() => setActiveTag(null)} className="ml-auto flex items-center gap-1 px-2.5 py-1 bg-red-50 text-red-500 rounded-full text-xs hover:bg-red-100 transition-colors">
                       <span>✕</span> 清除筛选
                     </button>
                   )}
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {topTags.map(([tag, count], idx) => {
+                <div className="flex items-end gap-2 flex-wrap leading-none">
+                  {topTags.map(([tag, count]) => {
                     const active = activeTag === tag;
-                    // 按热度分级：越大越突出
-                    const tier = count >= 5 ? 0 : count >= 3 ? 1 : 2;
+                    // 热力分级：4档，颜色深浅 + 字号大小
+                    let tier, fontSize;
+                    if (count >= 5) { tier = 0; fontSize = 'text-base'; }
+                    else if (count >= 3) { tier = 1; fontSize = 'text-sm'; }
+                    else if (count === 2) { tier = 2; fontSize = 'text-sm'; }
+                    else { tier = 3; fontSize = 'text-xs'; }
+                    // 热力档位配色（未激活态）：越热越深
                     const tiers = [
-                      { px: 'px-4 py-1.5', text: 'text-sm', font: 'font-semibold' },
-                      { px: 'px-3.5 py-1.5', text: 'text-sm', font: 'font-medium' },
-                      { px: 'px-3 py-1', text: 'text-xs', font: 'font-medium' },
+                      'bg-purple-600 text-white shadow-md shadow-purple-200',           // 极热
+                      'bg-purple-400 text-white',                                       // 热门
+                      'bg-purple-100 text-purple-700',                                  // 普通
+                      'bg-gray-50 text-gray-500 border border-gray-100',               // 冷门
                     ];
-                    // 渐变色按热度轮换
-                    const gradients = [
-                      'from-purple-500 via-pink-500 to-orange-400',
-                      'from-indigo-500 via-purple-500 to-pink-500',
-                      'from-blue-500 via-indigo-500 to-purple-500',
-                      'from-cyan-500 via-blue-500 to-indigo-500',
-                      'from-teal-500 via-cyan-500 to-blue-500',
-                    ];
-                    const grad = gradients[idx % gradients.length];
-                    const t = tiers[tier];
                     return (
                       <button
                         key={tag}
                         onClick={() => setActiveTag(active ? null : tag)}
                         className={cn(
-                          'rounded-full transition-all duration-200 flex items-center gap-1.5',
-                          t.px, t.text, t.font,
+                          'rounded-lg px-2.5 py-1.5 font-medium transition-all duration-200 flex items-baseline gap-1',
+                          fontSize,
                           active
-                            ? `bg-gradient-to-r ${grad} text-white shadow-md scale-105`
-                            : 'bg-gray-50 text-gray-600 hover:bg-gray-100 hover:scale-105 border border-gray-100'
+                            ? 'bg-gradient-to-r from-pink-500 to-orange-500 text-white shadow-lg scale-110 ring-2 ring-pink-200'
+                            : `${tiers[tier]} hover:scale-110`
                         )}
                       >
-                        <span className={active ? '' : 'text-gray-400'}>#</span>
+                        <span className={cn(active ? '' : tier <= 1 ? 'opacity-80' : 'opacity-60')}>#</span>
                         <span>{tag}</span>
-                        <span className={cn('px-1.5 py-0.5 rounded-full text-[10px] leading-none', active ? 'bg-white/25' : 'bg-gray-200 text-gray-500')}>{count}</span>
+                        <span className={cn('text-[10px] font-bold leading-none px-1 rounded-full', active ? 'bg-white/25' : tier === 0 ? 'bg-white/25' : tier === 1 ? 'bg-white/20' : 'bg-gray-200 text-gray-500')}>{count}</span>
                       </button>
                     );
                   })}
