@@ -27,6 +27,10 @@ export default function Home() {
   const [reporting, setReporting] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [postReturnTarget, setPostReturnTarget] = useState<'none' | 'profile' | 'notifications'>('none');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState({ title: '', content: '', tags: '' });
+  const [editing, setEditing] = useState(false);
+  const [activeTag, setActiveTag] = useState<string | null>(null);
 
   useEffect(() => {
     checkAuth();
@@ -152,6 +156,45 @@ export default function Home() {
     }
   };
 
+  const openEditModal = () => {
+    if (!selectedPost) return;
+    setEditForm({
+      title: selectedPost.title || '',
+      content: selectedPost.content || '',
+      tags: (selectedPost.tags || []).join(', '),
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditPost = async () => {
+    if (!selectedPost || !user) return;
+    if (!editForm.title.trim() || !editForm.content.trim()) {
+      alert('标题和内容不能为空');
+      return;
+    }
+    setEditing(true);
+    try {
+      const tags = editForm.tags.split(/[,，\s]+/).map(t => t.trim()).filter(Boolean);
+      const res = await fetch(`/api/posts/${selectedPost._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ title: editForm.title.trim(), content: editForm.content.trim(), tags }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setShowEditModal(false);
+        setSelectedPost(data.post ? { ...selectedPost, ...data.post } : selectedPost);
+        loadPosts();
+      } else {
+        alert(data.error || '编辑失败');
+      }
+    } catch (err) {
+      alert('编辑失败');
+    } finally {
+      setEditing(false);
+    }
+  };
+
   const handleTogglePin = async () => {
     if (!selectedPost || !user?.isAdmin) return;
     try {
@@ -193,11 +236,25 @@ export default function Home() {
     }
   };
 
-  const filteredPosts = posts.filter(post =>
-    post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    post.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredPosts = posts.filter(post => {
+    const matchSearch = !searchQuery ||
+      post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      post.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchTag = !activeTag || post.tags.includes(activeTag);
+    return matchSearch && matchTag;
+  });
+
+  // 统计所有标签的出现次数，用于标签云
+  const tagCounts = posts.reduce((acc, post) => {
+    (post.tags || []).forEach(tag => {
+      acc[tag] = (acc[tag] || 0) + 1;
+    });
+    return acc;
+  }, {} as Record<string, number>);
+  const topTags = Object.entries(tagCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 20);
 
   const canDeletePost = (post: PostType) => {
     if (!user) return false;
@@ -309,6 +366,31 @@ export default function Home() {
                 ))}
               </div>
             </div>
+
+            {topTags.length > 0 && (
+              <div className="mb-6">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-medium text-gray-400 mr-1">🏷️ 标签：</span>
+                  {activeTag && (
+                    <button onClick={() => setActiveTag(null)} className="px-2.5 py-1 bg-red-50 text-red-600 rounded-full text-xs hover:bg-red-100 transition-colors">✕ 清除筛选</button>
+                  )}
+                  {topTags.map(([tag, count]) => {
+                    const active = activeTag === tag;
+                    const size = Math.min(0.95 + count * 0.05, 1.1);
+                    return (
+                      <button
+                        key={tag}
+                        onClick={() => setActiveTag(active ? null : tag)}
+                        style={{ fontSize: `${size}rem` }}
+                        className={cn('px-3 py-1 rounded-full font-medium transition-all', active ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-purple-300 hover:text-purple-600')}
+                      >
+                        #{tag} <span className={cn('text-xs', active ? 'text-white/70' : 'text-gray-400')}>{count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             {loading ? (
               <div className="text-center py-12">
                 <div className="inline-block w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
@@ -432,6 +514,9 @@ export default function Home() {
                 {user && selectedPost.author?._id !== user.id && (
                   <button onClick={() => setShowReportModal(true)} className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200">⚠️ 举报</button>
                 )}
+                {user && selectedPost.author?._id === user.id && (
+                  <button onClick={openEditModal} className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-sm hover:bg-blue-100">✏️ 编辑</button>
+                )}
                 {user?.isAdmin && (
                   <button onClick={handleTogglePin} className={cn('px-3 py-1.5 rounded-lg text-sm', selectedPost.isPinned ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-600')}>📌 {selectedPost.isPinned ? '取消置顶' : '置顶'}</button>
                 )}
@@ -439,6 +524,50 @@ export default function Home() {
                   <button onClick={handleDeletePost} className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-sm hover:bg-red-100"><Trash2 className="w-4 h-4" />删除</button>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" onClick={() => setShowEditModal(false)}>
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-gray-900 mb-4">✏️ 编辑帖子</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">标题</label>
+                <input
+                  type="text"
+                  value={editForm.title}
+                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-purple-500"
+                  placeholder="帖子标题"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">内容</label>
+                <textarea
+                  value={editForm.content}
+                  onChange={(e) => setEditForm({ ...editForm, content: e.target.value })}
+                  rows={8}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-purple-500 resize-none"
+                  placeholder="帖子内容"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">标签（用逗号分隔）</label>
+                <input
+                  type="text"
+                  value={editForm.tags}
+                  onChange={(e) => setEditForm({ ...editForm, tags: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-purple-500"
+                  placeholder="如：质量, 首件, 经验"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setShowEditModal(false)} className="flex-1 py-2.5 bg-gray-100 text-gray-600 rounded-lg font-medium">取消</button>
+              <button onClick={handleEditPost} disabled={editing} className="flex-1 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium disabled:opacity-50">{editing ? '保存中...' : '保存修改'}</button>
             </div>
           </div>
         </div>
